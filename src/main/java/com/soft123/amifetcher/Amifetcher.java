@@ -3,23 +3,16 @@
  */
 
 package com.soft123.amifetcher;
-import spark.Spark.*;
+import android.content.Context;
 import com.data.CandlesData;
 import com.data.Priceboard;
 import java.io.OutputStream;
-import java.nio.file.FileSystems;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardWatchEventKinds;
-import java.nio.file.WatchEvent;
-import java.nio.file.WatchKey;
-import java.nio.file.WatchService;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import spark.Request;
 import spark.Response;
+import xframe.framework.xDataInput;
 import xframe.framework.xDataOutput;
+import xframe.framework.xFileManager;
 import xframe.utils.xUtils;
 
 
@@ -28,23 +21,19 @@ import xframe.utils.xUtils;
  * @author thuyps
  */
 public class Amifetcher {
-    String DATABASE_PATH = "./datapro_am";
-    XMaster _xmasterDaily;
-    XMaster _xmasterIntraday;
-    Master _masterDaily;
-    Master _masterIntraday;
+
+    static String PACKED_FOLDER = "./packed";
+    DataFetcher _dataHistorical;
+    DataFetcher _dataHistoricalM1;
     
     static Amifetcher amifetcher;
     public static void main(String[] args) {
         System.out.println("Hello World!");
         
+        xFileManager.setFileManager(Context.getInstance());
+        xFileManager.createAllDirs(PACKED_FOLDER);
+        
         amifetcher = new Amifetcher();
-        
-        amifetcher.loadMasters();
-        
-        amifetcher.loadVNSymbols();
-        
-        amifetcher.guardIntradayFiles();
         
         //----------------------------------
         spark.Spark.port(4567);
@@ -63,23 +52,26 @@ public class Amifetcher {
             amifetcher.doGetPriceboard(req, res);
             return res.raw();
         });
+        
+        spark.Spark.get("/packed", (req, res) -> {
+            amifetcher.doGetPacked(req, res);
+            return res.raw();
+        });        
 
         System.out.println("Fetcher running at: http://localhost:4567");        
     }
     
     public Amifetcher(){
+        _dataHistorical = new DataFetcher("./database/datapro_am");
+        _dataHistorical.setPackedFolder(PACKED_FOLDER);
+        _dataHistorical.setup(true, false);
         
+        _dataHistoricalM1 = new DataFetcher("./database/datatick_am");
+        _dataHistoricalM1.setup(false, true);
     }
 
-    public void loadMasters(){
-        _xmasterDaily = new XMaster(DATABASE_PATH, false);
-        _xmasterIntraday = new XMaster(DATABASE_PATH, true);
-
-        _masterDaily = new Master(DATABASE_PATH, false);
-        _masterIntraday = new Master(DATABASE_PATH, true);
-    }
-    
-    //  http://localhost:4567/history?symbol=VNM&id=233&mid=0&startdate=20250303
+    //  daily only
+    //  http://localhost:4567/history?symbol=VNM&id=233&mid=0&candle=D&startdate=20250303
     public void doGetHistory(Request request, Response response){
         try{
             String symbol = request.queryParams("symbol");
@@ -92,10 +84,8 @@ public class Amifetcher {
             sid = request.queryParams("mid");
             int market = xUtils.stringToInt(sid);
 
-            CandlesData share = _xmasterDaily.readData(shareId, symbol, market, date, 0);
-            if (share == null){
-                share = _masterDaily.readData(shareId, symbol, market, date, 0);
-            }
+            CandlesData share = _dataHistorical.getHistory(shareId, symbol, market, date);
+            
             if(share != null){
                 xDataOutput o = share.writeTo();
                 if (o != null && o.size() > 0){
@@ -119,7 +109,8 @@ public class Amifetcher {
         }
     }
     
-    //  http://localhost:4567/intraday?symbol=VNM&id=233&mid=0&startdate=20250503&starttime=1050
+    //  candle: valid value: M1/M5
+    //  http://localhost:4567/intraday?symbol=VNM&id=233&mid=0&candle=M1&startdate=20250503&starttime=1050
     public void doGetIntraday(Request request, Response response){
         try{
             String symbol = request.queryParams("symbol");
@@ -127,6 +118,7 @@ public class Amifetcher {
             String startTime = request.queryParams("starttime");
             int date = xUtils.stringYYYYMMDDToDateInt(startDate, "");
             int time = xUtils.stringHHMMSSToTimeInt(startTime, "");
+            String candle = request.queryParams("candle");            
 
             String sid = request.queryParams("id");
             int shareId = xUtils.stringToInt(sid);
@@ -134,10 +126,14 @@ public class Amifetcher {
             sid = request.queryParams("mid");
             int market = xUtils.stringToInt(sid);
 
-            CandlesData share = _xmasterIntraday.readData(shareId, symbol, market, date, time);
-            if (share == null){
-                share = _masterIntraday.readData(shareId, symbol, market, date, time);
+            CandlesData share = null;
+            if (candle.equalsIgnoreCase("M5")){
+                share = _dataHistorical.getIntraday(shareId, symbol, market, date, time);
             }
+            else if (candle.equalsIgnoreCase("M1")){
+                share = _dataHistoricalM1.getIntraday(shareId, symbol, market, date, time);
+            }
+            
             if(share != null){
                 xDataOutput o = share.writeTo();
                 if (o != null && o.size() > 0){
@@ -167,18 +163,16 @@ public class Amifetcher {
             String symbols = request.queryParams("symbols");
             
             String ss[] = symbols.split("[,]");
-            ArrayList<Priceboard> arr = new ArrayList<>();
+            ArrayList<Priceboard> arr = null;
             if (ss.length == 0 && symbols.compareTo("*") == 0){
-                _xmasterIntraday.getPriceboard(null, arr);
-                _masterIntraday.getPriceboard(null, arr);
+                arr = _dataHistoricalM1.getPriceboard(null);
             }
             else{
                 ArrayList<String> arrSymb = new ArrayList<>();
                 for (String sb: ss){
                     arrSymb.add(sb);
                 }
-                _xmasterIntraday.getPriceboard(arrSymb, arr);
-                _masterIntraday.getPriceboard(arrSymb, arr);
+                arr = _dataHistoricalM1.getPriceboard(arrSymb);
             }
             
             if(arr != null && arr.size() > 0){
@@ -206,205 +200,46 @@ public class Amifetcher {
         }
     }    
     
-    void guardIntradayFiles(){
-        Runnable r = new Runnable() {
-            @Override
-            public void run() {
-                String folderToGuard = String.format("%s/intraday", DATABASE_PATH);
-
-                try{
-                    Path path = Paths.get(folderToGuard);
-                    WatchService watchService = FileSystems.getDefault().newWatchService();
-                    path.register(watchService, StandardWatchEventKinds.ENTRY_MODIFY, StandardWatchEventKinds.ENTRY_CREATE);
-
-                    System.out.println("Đang theo dõi thư mục...");
-
-                    while (true) {
-                        WatchKey key = watchService.take();
-
-                        for (WatchEvent<?> event : key.pollEvents()) {
-                            //System.out.println("Sự kiện: " + event.kind() + " - File: " + event.context());
-
-                            if (event.kind() == StandardWatchEventKinds.ENTRY_MODIFY) {
-                                try{
-                                    Path modifiedFile = (Path) event.context();
-
-                                    String filename = modifiedFile.toString();
-                                    filename = filename.toLowerCase();
-
-                                    if (filename.endsWith(".mwd")) {
-                                        String ss[] = filename.split("[/]");
-                                        filename = ss[ss.length-1];
-
-                                        //  Fxxxx.MDW
-                                        filename = filename.replace(".mwd", "");
-                                        filename = filename.replace("f", "");
-
-                                        int fileId = xUtils.stringToInt(filename);
-                                        if (fileId > 0){
-                                            Priceboard ps = (Priceboard)_xmasterIntraday.dictPriceboard.objectForKeyO("" + fileId);
-                                            if (ps != null){
-                                                _xmasterIntraday.updatePriceboard(ps._symbol);
-                                            }
-                                        }
-                                    }
-                                    else if (filename.endsWith(".dat")){
-                                        String ss[] = filename.split("[/]");
-                                        filename = ss[ss.length-1];
-
-                                        //  Fxxxx.MDW
-                                        filename = filename.replace(".mwd", "");
-                                        filename = filename.replace("f", "");
-
-                                        int fileId = xUtils.stringToInt(filename);
-                                        if (fileId > 0){
-                                            Priceboard ps = (Priceboard)_masterIntraday.dictPriceboard.objectForKeyO("" + fileId);
-                                            if (ps != null){
-                                                _masterIntraday.updatePriceboard(ps._symbol);
-                                            }
-                                        }
-                                    }
-                                }
-                                catch(Throwable e1){
-                                    e1.printStackTrace();
-                                }
-                                System.out.println("File đã bị sửa đổi: " + event.context());
-                            }
-                        }
-
-                        boolean valid = key.reset();
-                        if (!valid) {
-                            break;
-                        }
-                    }    
-                }
-                catch(Throwable e){
-                    e.printStackTrace();
-                }                
+    //  type: D1: historical big
+    //  type: D2: historical medium
+    //  type: D3: historical small
+    //  type: M5: intraday M5
+    //  type: M10: intraday M10
+    public void doGetPacked(Request request, Response response){
+        try{
+            String type = request.queryParams("type");
+            
+            if (type == null || type.length() == 0){
+                response.status(404);
+                return;
             }
-        };
-        
-        new Thread(r).start();
+            
+            xDataInput di = null;
+            String filename = "";
+            
+            if (type.charAt(0) == 'D'){
+                di = _dataHistorical.getHistoricalDB(type);
+            }
+            else{
+                di = _dataHistorical.getIntradayDB(type);
+            }
+            
+            if (di != null){
+                // Thiết lập header phản hồi
+                response.type("application/octet-stream"); // Dùng cho file nhị phân chung
+                response.header("Content-Disposition", "attachment; filename=\"" + filename + "\"");
+                response.raw().setContentLength(di.available());
+                
+                OutputStream out = response.raw().getOutputStream();
+                out.write(di.getBytes(), 0, di.available());
 
+            }
+            else{
+                response.status(404);
+            }
+        }
+        catch(Throwable e){
+            response.status(404);
+        }
     }    
-    
-    public void packHistoricalDB(int candleCnt)
-    {
-        CandlesData share = new CandlesData(0, "", candleCnt);
-        
-        xDataOutput o = new xDataOutput(20*1024*1024);
-        o.setCursor(4);
-        int shareCnt = 0;
-        
-        int total = 490 < _arrPriceboard.size()?490:_arrPriceboard.size();
-
-        for (int i = 0; i < total; i++){
-            Priceboard ps = _arrPriceboard.get(i);
-            stRecord r = ps.rHistory;
-            boolean ok = _masterDaily.readData(r.shareId, r.symbol, r.marketId, candleCnt, share);
-            if (!ok){
-                _xmasterDaily.readData(r.shareId, r.symbol, r.marketId, candleCnt, share);
-            }
-            
-            shareCnt++;
-            share.writeToOutputForPacking(o);
-        }
-        
-        //  shareCnt
-        int totalSize = o.size();
-        o.setCursor(0);
-        o.writeInt(shareCnt);
-        o.size();
-        
-        o.setCursor(totalSize);
-    }
-    
-    public void packIntradayDB(int candleCnt, int minutesPerCandle)
-    {
-        CandlesData share = new CandlesData(0, "", candleCnt);
-        
-        int totalCandles = candleCnt*minutesPerCandle;
-        
-        xDataOutput o = new xDataOutput(20*1024*1024);
-        o.setCursor(4);
-        int shareCnt = 0;
-        
-        int total = 490 < _arrPriceboard.size()?490:_arrPriceboard.size();
-        
-        for (int i = 0; i < total; i++){
-            Priceboard ps = _arrPriceboard.get(i);
-            stRecord r = ps.rHistory;
-            
-            boolean ok = _masterIntraday.readData(r.shareId, r.symbol, r.marketId, totalCandles, share);
-            if (!ok){
-                _xmasterIntraday.readData(r.shareId, r.symbol, r.marketId, totalCandles, share);
-            }
-            
-            shareCnt++;
-            share.changeCandleType(minutesPerCandle);
-            share.writeToOutputForPacking(o);
-        }
-
-        //  shareCnt
-        int totalSize = o.size();
-        o.setCursor(0);
-        o.writeInt(shareCnt);
-        o.size();
-        
-        o.setCursor(totalSize);
-    }
-    
-    //  sort by average volume
-    ArrayList<Priceboard> _arrPriceboard;
-    void loadVNSymbols(){
-        _arrPriceboard = new ArrayList<>();
-        
-        _masterIntraday.getPriceboard(null, _arrPriceboard);
-        _xmasterIntraday.getPriceboard(null, _arrPriceboard);
-        for (Priceboard ps: _arrPriceboard)
-        {
-            if (_masterDaily.contains(ps._symbol)){
-                stRecord r = _masterDaily.getRecord(ps._symbol);
-                ps.rHistory = r;
-            }
-            else{
-                stRecord r = _xmasterDaily.getRecord(ps._symbol);
-                ps.rHistory = r;
-            }
-        }
-        _masterIntraday.filterVNSymbols(_arrPriceboard);
-        _xmasterIntraday.filterVNSymbols(_arrPriceboard);
-        
-        for (Priceboard ps: _arrPriceboard)
-        {
-            if (_masterDaily.contains(ps._symbol)){
-                _masterDaily.doStatisticOnSymbol(ps);
-            }
-            else{
-                _xmasterDaily.doStatisticOnSymbol(ps);
-            }
-        }
-        
-        Collections.sort(_arrPriceboard, new Comparator<Priceboard>(){
-            @Override
-            public int compare(Priceboard o1, Priceboard o2) {
-                if (o1._avgVolume > o2._avgVolume){
-                    return -1;
-                }
-                else if (o1._avgVolume < o2._avgVolume){
-                    return 1;
-                }
-                return 0;
-            }
-        });
-        
-        if (_arrPriceboard.size() < 10){
-            return;
-        }
-        
-        for (int i = 0; i < 10; i++){
-            Priceboard ps = _arrPriceboard.get(i);
-            xUtils.trace(ps.toString());
-        }
-    }
 }
