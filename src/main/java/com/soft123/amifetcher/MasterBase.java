@@ -24,16 +24,19 @@ public abstract class MasterBase {
     protected String _folder;
     protected  boolean isIntraday;
     protected ArrayList<stRecord> _records = new ArrayList<>();
+    protected VTDictionary _dictRecords = new VTDictionary();
     
     public MasterBase(String folder, boolean intraday){
         isIntraday = intraday;
         _folder = folder;
+        
+        sharedCandlesData = new CandlesData(0, "", 0, 30*1024);        
 
         loadMaster();
         
         if (intraday){
             dictPriceboard = new VTDictionary();
-            
+
             for (stRecord r: _records){
                 updatePriceboard(r.symbol);
             }
@@ -46,6 +49,10 @@ public abstract class MasterBase {
     abstract protected String getFilepath(stRecord r);
     abstract protected int HEADER_RECORD_SIZE(stRecord r);
     abstract protected int RECORD_SIZE(stRecord r);
+    
+    public boolean contains(String symbol){
+        return _dictRecords.hasObject(symbol);
+    }
     
     public static float convertMBFToFloat(byte[] p, int off) {
         int valtemp = (p[off] & 0xFF) | 
@@ -141,6 +148,9 @@ public abstract class MasterBase {
         int recordSize = RECORD_SIZE(r);
         
         xDataInput di = xFileManager.readFile(filePath);
+        if (di == null){
+            xUtils.trace("");
+        }
         try {
             int totalRecord;
             di.skip(2);
@@ -399,13 +409,7 @@ public abstract class MasterBase {
     }
     
     public stRecord getRecord(String symbol){
-        for (stRecord r: _records){
-            if (r.symbol.compareToIgnoreCase(symbol) == 0){
-                return r;
-            }
-        }
-        
-        return null;
+        return (stRecord)_dictRecords.objectForKeyO(symbol);
     }
     
     public ArrayList<stRecord> getRecords(){
@@ -431,13 +435,13 @@ public abstract class MasterBase {
         }
     }
     
-    public void readData(int shareId, String symbol, int marketId, 
+    public boolean readData(int shareId, String symbol, int marketId, 
             int candleCnt, CandlesData share)
     {
         share.clear();
         stRecord r = getRecord(symbol);
         if (r == null){
-            return;
+            return false;
         }
         
         r.shareId = shareId;
@@ -449,17 +453,19 @@ public abstract class MasterBase {
         else{
             readDataD(r, candleCnt, share);
         }
+        
+        return true;
     }
     
-    protected CandlesData sharePriceboard;
+    protected CandlesData sharedCandlesData;
     protected VTDictionary dictPriceboard;
     void updatePriceboard(String symbol){
         if (!isIntraday){
             return;
         }
         
-        if (sharePriceboard == null){
-            sharePriceboard = new CandlesData(0, symbol, 0, 24*3600);
+        if (sharedCandlesData == null){
+            sharedCandlesData = new CandlesData(0, symbol, 0, 24*3600);
         }
 
         Priceboard ps = (Priceboard)dictPriceboard.objectForKeyO(symbol);
@@ -468,7 +474,7 @@ public abstract class MasterBase {
             
             stRecord r = getRecord(symbol);
             ps._fileId = r.fileId;
-            ps.r = r;
+            ps.rIntrday = r;
             
             dictPriceboard.setValue(ps, symbol);
             dictPriceboard.setValue(ps, ""+r.fileId);
@@ -477,29 +483,29 @@ public abstract class MasterBase {
         long now = System.currentTimeMillis();
         long elapsed = (now - ps._timeUpdate)/1000;
         long elapsedOpen = (now - ps._timeUpdateOpen)/1000;
-        sharePriceboard.clear();
+        sharedCandlesData.clear();
         if (elapsedOpen > 3600){
             //  reupdate 
-            readDataIntraday(ps.r, sharePriceboard, false);
+            readDataIntraday(ps.rIntrday, sharedCandlesData, false);
             
-            int candles = sharePriceboard.getCandleCnt();
+            int candles = sharedCandlesData.getCandleCnt();
             ps.reset();
             ps._timeUpdate = now;
             ps._timeUpdateOpen = now;
             for (int i = 0; i < candles; i++){
                 if (i == 0){
-                    ps._prevClose = sharePriceboard.close[0];
+                    ps._prevClose = sharedCandlesData.close[0];
                     continue;
                 }
                 //=====================
                 
-                int v = sharePriceboard.volume[i];
+                int v = sharedCandlesData.volume[i];
                 ps._volume += v;
-                if (ps._open == 0 && sharePriceboard.open[i] > 0){
+                if (ps._open == 0 && sharedCandlesData.open[i] > 0){
                     ps._timeUpdateOpen = now;
-                    ps._open = sharePriceboard.open[i];
+                    ps._open = sharedCandlesData.open[i];
                 }
-                ps._price = sharePriceboard.close[i];
+                ps._price = sharedCandlesData.close[i];
                 if (ps._highest == 0){
                     ps._highest = ps._price;
                 }
@@ -513,26 +519,26 @@ public abstract class MasterBase {
                     ps._lowest = ps._price;
                 }
                 
-                int date = sharePriceboard.date[i];
+                int date = sharedCandlesData.date[i];
                 ps._date = xUtils.dateFromPackagedDate(date);
                 ps._time = xUtils.timeFromPackagedDate(date);
             }
         }
         else{
-            readDataIntraday(ps.r, sharePriceboard, true);
+            readDataIntraday(ps.rIntrday, sharedCandlesData, true);
 
-            int candles = sharePriceboard.getCandleCnt();
+            int candles = sharedCandlesData.getCandleCnt();
 
             ps._timeUpdate = now;
 
             if (candles == 0){
-                int v = sharePriceboard.volume[0];
+                int v = sharedCandlesData.volume[0];
                 ps._volume += v;
-                if (ps._open == 0 && sharePriceboard.open[0] > 0){
+                if (ps._open == 0 && sharedCandlesData.open[0] > 0){
                     ps._timeUpdateOpen = now;
-                    ps._open = sharePriceboard.open[0];
+                    ps._open = sharedCandlesData.open[0];
                 }
-                ps._price = sharePriceboard.close[0];
+                ps._price = sharedCandlesData.close[0];
                 if (ps._highest == 0){
                     ps._highest = ps._price;
                 }
@@ -546,7 +552,7 @@ public abstract class MasterBase {
                     ps._lowest = ps._price;
                 }
                 
-                int date = sharePriceboard.date[0];
+                int date = sharedCandlesData.date[0];
                 int today = xUtils.dateFromPackagedDate(date);
                 if (today > ps._date){
                     //  new day
@@ -584,5 +590,36 @@ public abstract class MasterBase {
         }
 
         return arrPriceboard;
+    }
+    
+    public void filterVNSymbols(ArrayList<Priceboard> arrPriceboard){
+        ArrayList<Priceboard> nonVN = new ArrayList<>();
+        for (Priceboard ps: arrPriceboard){
+            if (ps._symbol.length() != 3){
+                nonVN.add(ps);
+            }
+        }
+        
+        for (Priceboard ps: nonVN){
+            arrPriceboard.remove(ps);
+        }
+    }
+    
+    public void doStatisticOnSymbol(Priceboard ps)
+    {
+        if (isIntraday){
+            return;
+        }
+        try{
+            sharedCandlesData.clear();
+            stRecord historicalRecord = ps.rHistory;
+            if (historicalRecord != null){
+                readDataD(historicalRecord, 15, sharedCandlesData);
+                ps._avgVolume = sharedCandlesData.getAvgVol(10);
+            }
+        }
+        catch(Throwable e){
+            
+        }
     }
 }

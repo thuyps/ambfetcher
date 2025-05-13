@@ -15,6 +15,8 @@ import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import spark.Request;
 import spark.Response;
 import xframe.framework.xDataOutput;
@@ -39,8 +41,12 @@ public class Amifetcher {
         amifetcher = new Amifetcher();
         
         amifetcher.loadMasters();
+        
+        amifetcher.loadVNSymbols();
+        
         amifetcher.guardIntradayFiles();
         
+        //----------------------------------
         spark.Spark.port(4567);
 
         spark.Spark.get("/history", (req, res) -> {
@@ -284,42 +290,25 @@ public class Amifetcher {
     
     public void packHistoricalDB(int candleCnt)
     {
-        int avgVol10 = 100;     //  100 = 10k
-        int minCandles = 50;
         CandlesData share = new CandlesData(0, "", candleCnt);
         
         xDataOutput o = new xDataOutput(20*1024*1024);
         o.setCursor(4);
         int shareCnt = 0;
         
-        //  master
-        ArrayList<stRecord> records = _masterDaily.getRecords();
-        for (stRecord r: records){
-            _masterDaily.readData(r.shareId, r.symbol, r.marketId, candleCnt, share);
-            if (share.getCandleCnt() > minCandles){
-                int vol10 = share.getAvgVol(6);
-                if (vol10 < avgVol10){
-                    continue;
-                }
+        int total = 490 < _arrPriceboard.size()?490:_arrPriceboard.size();
+
+        for (int i = 0; i < total; i++){
+            Priceboard ps = _arrPriceboard.get(i);
+            stRecord r = ps.rHistory;
+            boolean ok = _masterDaily.readData(r.shareId, r.symbol, r.marketId, candleCnt, share);
+            if (!ok){
+                _xmasterDaily.readData(r.shareId, r.symbol, r.marketId, candleCnt, share);
             }
             
             shareCnt++;
             share.writeToOutputForPacking(o);
         }
-        //  xmaster
-        records = _xmasterDaily.getRecords();
-        for (stRecord r: records){
-            _xmasterDaily.readData(r.shareId, r.symbol, r.marketId, candleCnt, share);
-            if (share.getCandleCnt() > minCandles){
-                int vol10 = share.getAvgVol(6);
-                if (vol10 < avgVol10){
-                    continue;
-                }
-            }
-            
-            shareCnt++;
-            share.writeToOutputForPacking(o);
-        }        
         
         //  shareCnt
         int totalSize = o.size();
@@ -332,8 +321,6 @@ public class Amifetcher {
     
     public void packIntradayDB(int candleCnt, int minutesPerCandle)
     {
-        int avgVol30 = 1500;     //  100 = 10k
-        int minCandles = 50;
         CandlesData share = new CandlesData(0, "", candleCnt);
         
         int totalCandles = candleCnt*minutesPerCandle;
@@ -342,37 +329,22 @@ public class Amifetcher {
         o.setCursor(4);
         int shareCnt = 0;
         
-        //  master
-        ArrayList<stRecord> records = _masterIntraday.getRecords();
-        for (stRecord r: records){
-            _masterIntraday.readData(r.shareId, r.symbol, r.marketId, totalCandles, share);
-            if (share.getCandleCnt() > minCandles){
-                int vol30 = share.getAvgVol(30);
-                if (vol30 < avgVol30){
-                    continue;
-                }
+        int total = 490 < _arrPriceboard.size()?490:_arrPriceboard.size();
+        
+        for (int i = 0; i < total; i++){
+            Priceboard ps = _arrPriceboard.get(i);
+            stRecord r = ps.rHistory;
+            
+            boolean ok = _masterIntraday.readData(r.shareId, r.symbol, r.marketId, totalCandles, share);
+            if (!ok){
+                _xmasterIntraday.readData(r.shareId, r.symbol, r.marketId, totalCandles, share);
             }
             
             shareCnt++;
             share.changeCandleType(minutesPerCandle);
             share.writeToOutputForPacking(o);
         }
-        //  xmaster
-        records = _xmasterIntraday.getRecords();
-        for (stRecord r: records){
-            _xmasterIntraday.readData(r.shareId, r.symbol, r.marketId, totalCandles, share);
-            if (share.getCandleCnt() > minCandles){
-                int vol30 = share.getAvgVol(30);
-                if (vol30 < avgVol30){
-                    continue;
-                }
-            }
-            
-            shareCnt++;
-            share.changeCandleType(minutesPerCandle);
-            share.writeToOutputForPacking(o);
-        }        
-        
+
         //  shareCnt
         int totalSize = o.size();
         o.setCursor(0);
@@ -383,7 +355,56 @@ public class Amifetcher {
     }
     
     //  sort by average volume
+    ArrayList<Priceboard> _arrPriceboard;
     void loadVNSymbols(){
+        _arrPriceboard = new ArrayList<>();
         
+        _masterIntraday.getPriceboard(null, _arrPriceboard);
+        _xmasterIntraday.getPriceboard(null, _arrPriceboard);
+        for (Priceboard ps: _arrPriceboard)
+        {
+            if (_masterDaily.contains(ps._symbol)){
+                stRecord r = _masterDaily.getRecord(ps._symbol);
+                ps.rHistory = r;
+            }
+            else{
+                stRecord r = _xmasterDaily.getRecord(ps._symbol);
+                ps.rHistory = r;
+            }
+        }
+        _masterIntraday.filterVNSymbols(_arrPriceboard);
+        _xmasterIntraday.filterVNSymbols(_arrPriceboard);
+        
+        for (Priceboard ps: _arrPriceboard)
+        {
+            if (_masterDaily.contains(ps._symbol)){
+                _masterDaily.doStatisticOnSymbol(ps);
+            }
+            else{
+                _xmasterDaily.doStatisticOnSymbol(ps);
+            }
+        }
+        
+        Collections.sort(_arrPriceboard, new Comparator<Priceboard>(){
+            @Override
+            public int compare(Priceboard o1, Priceboard o2) {
+                if (o1._avgVolume > o2._avgVolume){
+                    return -1;
+                }
+                else if (o1._avgVolume < o2._avgVolume){
+                    return 1;
+                }
+                return 0;
+            }
+        });
+        
+        if (_arrPriceboard.size() < 10){
+            return;
+        }
+        
+        for (int i = 0; i < 10; i++){
+            Priceboard ps = _arrPriceboard.get(i);
+            xUtils.trace(ps.toString());
+        }
     }
 }

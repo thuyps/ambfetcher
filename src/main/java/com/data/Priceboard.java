@@ -26,7 +26,10 @@ public class Priceboard {
     public int _date;
     public int _time;
     
-    public stRecord r;  //  for quick ref
+    public int _avgVolume;  //  *10
+    
+    public stRecord rIntrday;  //  intrday record - for quick ref
+    public stRecord rHistory;         //  historical record
     
     public Priceboard(String symbol){
         _symbol = symbol;

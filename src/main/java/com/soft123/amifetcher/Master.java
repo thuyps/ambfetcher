@@ -4,6 +4,7 @@
  */
 package com.soft123.amifetcher;
 
+import com.data.CandlesData;
 import xframe.framework.xDataInput;
 import xframe.framework.xFileManager;
 
@@ -111,6 +112,7 @@ public class Master extends MasterBase{
                 r.recordSize = recordLength;
                 r.totalField = totalFields;
                 _records.add(r);
+                _dictRecords.setValue(r, symbol);
 
                 if (!symbol.isEmpty()) {
                     System.out.printf("Symbol: %s | Desc: %s | Group: %s | Market: %s | File ID: F%d.DAT%n",

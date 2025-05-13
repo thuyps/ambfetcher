@@ -101,6 +101,7 @@ public class XMaster extends MasterBase{
                 
                 stRecord r = new stRecord(symbol, fileFNumber);
                 _records.add(r);
+                _dictRecords.setValue(r, symbol);
 
                 if (!symbol.isEmpty()) {
                     System.out.printf("Symbol: %s | Desc: %s | Group: %s | Market: %s | File ID: F%d.MWD%n",
