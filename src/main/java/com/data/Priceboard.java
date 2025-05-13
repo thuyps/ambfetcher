@@ -4,6 +4,7 @@
  */
 package com.data;
 
+import com.soft123.amifetcher.stRecord;
 import xframe.utils.xUtils;
 
 /**
@@ -24,6 +25,8 @@ public class Priceboard {
     public int _fileId;
     public int _date;
     public int _time;
+    
+    public stRecord r;  //  for quick ref
     
     public Priceboard(String symbol){
         _symbol = symbol;

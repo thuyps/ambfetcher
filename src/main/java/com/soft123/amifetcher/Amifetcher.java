@@ -381,4 +381,9 @@ public class Amifetcher {
         
         o.setCursor(totalSize);
     }
+    
+    //  sort by average volume
+    void loadVNSymbols(){
+        
+    }
 }
