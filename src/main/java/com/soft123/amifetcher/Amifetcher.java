@@ -28,7 +28,7 @@ public class Amifetcher {
     
     static Amifetcher amifetcher;
     public static void main(String[] args) {
-        System.out.println("Hello World!");
+        System.out.println("=======================");
         
         xFileManager.setFileManager(Context.getInstance());
         xFileManager.createAllDirs(PACKED_FOLDER);
@@ -71,12 +71,14 @@ public class Amifetcher {
     }
 
     //  daily only
-    //  http://localhost:4567/history?symbol=VNM&id=233&mid=0&candle=D&startdate=20250303
+    //  http://localhost:4567/history?symbol=VNM&id=233&mid=0&candles=&startdate=20250303
     public void doGetHistory(Request request, Response response){
         try{
             String symbol = request.queryParams("symbol");
             String startDate = request.queryParams("startdate");
             int date = xUtils.stringYYYYMMDDToDateInt(startDate, "");
+            
+            int candles = xUtils.stringToInt(request.queryParams("candles"));
 
             String sid = request.queryParams("id");
             int shareId = xUtils.stringToInt(sid);
@@ -84,7 +86,13 @@ public class Amifetcher {
             sid = request.queryParams("mid");
             int market = xUtils.stringToInt(sid);
 
-            CandlesData share = _dataHistorical.getHistory(shareId, symbol, market, date);
+            CandlesData share = null;
+            if (candles > 0){
+                share = _dataHistorical.getHistory(shareId, symbol, candles);
+            }
+            else{
+                share = _dataHistorical.getHistory(shareId, symbol, market, date);
+            }
             
             if(share != null){
                 xDataOutput o = share.writeTo();
@@ -110,7 +118,7 @@ public class Amifetcher {
     }
     
     //  candle: valid value: M1/M5
-    //  http://localhost:4567/intraday?symbol=VNM&id=233&mid=0&candle=M1&startdate=20250503&starttime=1050
+    //  http://localhost:4567/intraday?symbol=VNM&id=233&mid=0&frame=M1&candles=&startdate=20250503&starttime=1050
     public void doGetIntraday(Request request, Response response){
         try{
             String symbol = request.queryParams("symbol");
@@ -118,7 +126,8 @@ public class Amifetcher {
             String startTime = request.queryParams("starttime");
             int date = xUtils.stringYYYYMMDDToDateInt(startDate, "");
             int time = xUtils.stringHHMMSSToTimeInt(startTime, "");
-            String candle = request.queryParams("candle");            
+            String frame = request.queryParams("frame");            
+            int candles = xUtils.stringToInt(request.queryParams("candles"));
 
             String sid = request.queryParams("id");
             int shareId = xUtils.stringToInt(sid);
@@ -127,11 +136,21 @@ public class Amifetcher {
             int market = xUtils.stringToInt(sid);
 
             CandlesData share = null;
-            if (candle.equalsIgnoreCase("M5")){
-                share = _dataHistorical.getIntraday(shareId, symbol, market, date, time);
+            if (frame.equalsIgnoreCase("M5")){
+                if (candles > 0){
+                    share = _dataHistorical.getIntraday(shareId, symbol, candles);
+                }
+                else{
+                    share = _dataHistorical.getIntraday(shareId, symbol, market, date, time);
+                }
             }
-            else if (candle.equalsIgnoreCase("M1")){
-                share = _dataHistoricalM1.getIntraday(shareId, symbol, market, date, time);
+            else if (frame.equalsIgnoreCase("M1") && _dataHistoricalM1 != null){
+                if (candles > 0){
+                    share = _dataHistoricalM1.getIntraday(shareId, symbol, candles);
+                }
+                else{
+                    share = _dataHistoricalM1.getIntraday(shareId, symbol, market, date, time);
+                }
             }
             
             if(share != null){

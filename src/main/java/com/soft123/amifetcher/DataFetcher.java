@@ -340,6 +340,7 @@ public class DataFetcher {
         return arrPriceboard;
     }
     
+    //  history: candle type: D
     public CandlesData getHistory(int shareId, String symbol, int market, int date){
         CandlesData share = _xmasterDaily.readData(shareId, symbol, market, date, 0);
         if (share == null){
@@ -348,6 +349,15 @@ public class DataFetcher {
         return share;
     }
     
+    public CandlesData getHistory(int shareId, String symbol, int candles){
+        CandlesData share = _xmasterDaily.readData(shareId, symbol, candles);
+        if (share == null){
+            share = _masterDaily.readData(shareId, symbol, candles);
+        }        
+        return share;
+    }
+    
+    //  intraday: candle type: M5, M1 (if using datatick)
     public CandlesData getIntraday(int shareId, String symbol, int market, int date, int time){
         CandlesData share = _xmasterIntraday.readData(shareId, symbol, market, date, time);
         if (share == null){
@@ -355,4 +365,12 @@ public class DataFetcher {
         }
         return share;
     }
+    
+    public CandlesData getIntraday(int shareId, String symbol, int candles){
+        CandlesData share = _xmasterIntraday.readData(shareId, symbol, candles);
+        if (share == null){
+            share = _masterIntraday.readData(shareId, symbol, candles);
+        }
+        return share;
+    }    
 }

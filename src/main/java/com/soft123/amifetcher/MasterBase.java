@@ -457,6 +457,16 @@ public abstract class MasterBase {
         return true;
     }
     
+    public CandlesData readData(int shareId, String symbol, 
+            int candleCnt)
+    {
+        CandlesData share = new CandlesData(shareId, symbol, 0, candleCnt);
+        
+        readData(shareId, symbol, 0, candleCnt, share);
+        
+        return share;
+    }
+    
     protected CandlesData sharedCandlesData;
     protected VTDictionary dictPriceboard;
     void updatePriceboard(String symbol){
