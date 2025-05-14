@@ -358,18 +358,95 @@ public class DataFetcher {
     }
     
     //  intraday: candle type: M5, M1 (if using datatick)
-    public CandlesData getIntraday(int shareId, String symbol, int market, int date, int time){
-        CandlesData share = _xmasterIntraday.readData(shareId, symbol, market, date, time);
-        if (share == null){
-            share = _masterIntraday.readData(shareId, symbol, market, date, time);
+    public CandlesData getIntraday(int shareId, String symbol, int market, int date, int time, int candleType){
+        CandlesData share = null;
+        if (_xmasterIntraday.contains(symbol)){
+            determineCandleFrame(_xmasterIntraday, symbol, candleType);
+            
+            share = _xmasterIntraday.readData(shareId, symbol, market, date, time);
+            stRecord r = _xmasterIntraday.getRecord(symbol);
+            boolean needChangeCandleType = false;
+            if (r.period > 0 && r.period < candleType){
+                needChangeCandleType = true;
+            }
+            if (needChangeCandleType){
+                share.changeCandleType(candleType);
+            }
         }
+        else if (_masterIntraday.contains(symbol)){
+            determineCandleFrame(_masterIntraday, symbol, candleType);
+            
+            share = _masterIntraday.readData(shareId, symbol, market, date, time);
+            stRecord r = _masterIntraday.getRecord(symbol);
+            boolean needChangeCandleType = false;
+            if (r.period > 0 && r.period < candleType){
+                needChangeCandleType = true;
+            }
+            if (needChangeCandleType){
+                share.changeCandleType(candleType);
+            }
+        }
+        
         return share;
     }
     
-    public CandlesData getIntraday(int shareId, String symbol, int candles){
-        CandlesData share = _xmasterIntraday.readData(shareId, symbol, candles);
-        if (share == null){
+    private void determineCandleFrame(MasterBase master, String symbol, int candleType)
+    {
+        stRecord r = master.getRecord(symbol);
+        if (r != null && r.period == 0){
+            //  determine period
+            CandlesData share = master.readData(0, symbol, 20);
+            if (share.getCandleCnt() > 2){
+                int cd = share.date[0];
+                int date0 = xUtils.dateFromPackagedDate(cd);
+                int time0 = xUtils.timeFromPackagedDate(cd);
+                int m0 = xUtils.EXTRACT_HOUR(time0)*60 + xUtils.EXTRACT_MINUTE(time0);
+                int minPeriod = 1000;
+                for (int i = 1; i < share.getCandleCnt(); i++){
+                    cd = share.date[i];
+                    int date = xUtils.dateFromPackagedDate(cd);
+                    int time = xUtils.timeFromPackagedDate(cd);
+                    if (date == date0){
+                        int m1 = xUtils.EXTRACT_HOUR(time)*60 + xUtils.EXTRACT_MINUTE(time);
+                        if (m1 > m0 && m1 - m0 < minPeriod){
+                            minPeriod = m1 - m0;
+                        }
+                    }
+                }
+                if (minPeriod < 1000 && minPeriod > 0){
+                    r.period = minPeriod;
+                }
+            }
+        }
+    }
+    
+    public CandlesData getIntraday(int shareId, String symbol, int candles, int candleType){
+        CandlesData share = null;
+        if (_xmasterIntraday.contains(symbol)){
+            determineCandleFrame(_xmasterIntraday, symbol, candleType);
+            stRecord r = _xmasterIntraday.getRecord(symbol);
+            boolean needChangeCandleType = false;
+            if (r.period > 0 && r.period < candleType){
+                candles = (int)(candles*(float)candleType/r.period);
+                needChangeCandleType = true;
+            }
+            share = _xmasterIntraday.readData(shareId, symbol, candles);
+            if (needChangeCandleType){
+                share.changeCandleType(candleType);
+            }
+        }
+        else if (_masterIntraday.contains(symbol)){
+            determineCandleFrame(_masterIntraday, symbol, candleType);
+            stRecord r = _masterIntraday.getRecord(symbol);
+            boolean needChangeCandleType = false;
+            if (r.period > 0 && r.period < candleType){
+                candles = (int)(candles*(float)candleType/r.period);
+                needChangeCandleType = true;
+            }
             share = _masterIntraday.readData(shareId, symbol, candles);
+            if (needChangeCandleType){
+                share.changeCandleType(candleType);
+            }
         }
         return share;
     }    

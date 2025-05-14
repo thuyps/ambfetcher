@@ -8,6 +8,7 @@ import android.content.Context;
 import java.awt.Font;
 import java.awt.GraphicsEnvironment;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -438,7 +439,17 @@ public class xFileManager {
     static public String readResourceAsString(String resource){
         try {
             InputStream stream = ClassLoader.getSystemClassLoader().getResourceAsStream(resource);
-            byte[] p = stream.readAllBytes();
+            //byte[] p = stream.readAllBytes();
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+
+            int nRead;
+            byte[] data = new byte[1024];
+
+            while ((nRead = stream.read(data, 0, data.length)) != -1) {
+                buffer.write(data, 0, nRead);
+            }
+
+            byte[] p = buffer.toByteArray(); // Đây là mảng byte bạn cần
             return new String(p, 0, p.length);
         } catch (Throwable e) {
             e.printStackTrace();

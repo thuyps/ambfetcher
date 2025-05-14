@@ -14,6 +14,10 @@ import xframe.utils.xUtils;
  * @author Administrator
  */
 public class CandlesData {
+    public static final int CANDLE_DAILY = 1000;
+    public static final int CANDLE_M1 = 1;
+    public static final int CANDLE_M30 = 30;
+    
     static int CANDLE_SIZE = 28;
     public String symbol;
     public int shareId;

@@ -36,7 +36,7 @@ public class Amifetcher {
         amifetcher = new Amifetcher();
         
         //----------------------------------
-        spark.Spark.port(4567);
+        spark.Spark.port(2610);
 
         spark.Spark.get("/history", (req, res) -> {
             amifetcher.doGetHistory(req, res);
@@ -62,12 +62,12 @@ public class Amifetcher {
     }
     
     public Amifetcher(){
-        _dataHistorical = new DataFetcher("./database/datapro_am");
+        _dataHistorical = new DataFetcher("./datapro");
         _dataHistorical.setPackedFolder(PACKED_FOLDER);
         _dataHistorical.setup(true, false);
         
-        _dataHistoricalM1 = new DataFetcher("./database/datatick_am");
-        _dataHistoricalM1.setup(false, true);
+        //_dataHistoricalM1 = new DataFetcher("./datatick");
+        //_dataHistoricalM1.setup(false, true);
     }
 
     //  daily only
@@ -117,7 +117,7 @@ public class Amifetcher {
         }
     }
     
-    //  candle: valid value: M1/M5
+    //  candle: valid value: M1/M30
     //  http://localhost:4567/intraday?symbol=VNM&id=233&mid=0&frame=M1&candles=&startdate=20250503&starttime=1050
     public void doGetIntraday(Request request, Response response){
         try{
@@ -136,20 +136,30 @@ public class Amifetcher {
             int market = xUtils.stringToInt(sid);
 
             CandlesData share = null;
-            if (frame.equalsIgnoreCase("M5")){
+            if (frame.equalsIgnoreCase("M30")){
                 if (candles > 0){
-                    share = _dataHistorical.getIntraday(shareId, symbol, candles);
+                    share = _dataHistorical.getIntraday(shareId, symbol, candles, CandlesData.CANDLE_M30);
                 }
                 else{
-                    share = _dataHistorical.getIntraday(shareId, symbol, market, date, time);
+                    share = _dataHistorical.getIntraday(shareId, symbol, market, date, time, CandlesData.CANDLE_M30);
                 }
             }
-            else if (frame.equalsIgnoreCase("M1") && _dataHistoricalM1 != null){
-                if (candles > 0){
-                    share = _dataHistoricalM1.getIntraday(shareId, symbol, candles);
+            else if (frame.equalsIgnoreCase("M1")){
+                if (_dataHistoricalM1 != null){
+                    if (candles > 0){
+                        share = _dataHistoricalM1.getIntraday(shareId, symbol, candles, CandlesData.CANDLE_M1);
+                    }
+                    else{
+                        share = _dataHistoricalM1.getIntraday(shareId, symbol, market, date, time, CandlesData.CANDLE_M1);
+                    }
                 }
                 else{
-                    share = _dataHistoricalM1.getIntraday(shareId, symbol, market, date, time);
+                    if (candles > 0){
+                        share = _dataHistorical.getIntraday(shareId, symbol, candles, CandlesData.CANDLE_M1);
+                    }
+                    else{
+                        share = _dataHistorical.getIntraday(shareId, symbol, market, date, time, CandlesData.CANDLE_M1);
+                    }
                 }
             }
             

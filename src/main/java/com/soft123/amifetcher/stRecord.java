@@ -19,4 +19,5 @@ public class stRecord {
     public int shareId;
     public int recordSize;    
     public int totalField;
+    public int period;  //  0: unknow, D:1000; M1: 1; M30: 30
 }
