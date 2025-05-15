@@ -66,25 +66,33 @@ public class Amifetcher {
         _dataHistorical.setPackedFolder(PACKED_FOLDER);
         _dataHistorical.setup(true, false);
         
-        //_dataHistoricalM1 = new DataFetcher("./datatick");
-        //_dataHistoricalM1.setup(false, true);
+        _dataHistoricalM1 = new DataFetcher("./datapro");//datatick");
+        _dataHistoricalM1.setup(false, true);
     }
 
     //  daily only
-    //  http://localhost:4567/history?symbol=VNM&id=233&mid=0&candles=&startdate=20250303
+    //  http://localhost:4567/history?symbol=VNM&id=233&mid=0&candles=&date=20250303&frame=D/M1/M5/M30
     public void doGetHistory(Request request, Response response){
         try{
             String symbol = request.queryParams("symbol");
-            String startDate = request.queryParams("startdate");
+            String startDate = request.queryParams("date");
             int date = xUtils.stringYYYYMMDDToDateInt(startDate, "");
             
             int candles = xUtils.stringToInt(request.queryParams("candles"));
+            String frame = request.queryParams("frame");
 
             String sid = request.queryParams("id");
             int shareId = xUtils.stringToInt(sid);
 
             sid = request.queryParams("mid");
             int market = xUtils.stringToInt(sid);
+            
+            //===============================
+            if (frame != null && frame.contains("M")){
+                doGetIntraday(request, response);
+                return;
+            }
+            //===============================
 
             CandlesData share = null;
             if (candles > 0){
@@ -118,7 +126,7 @@ public class Amifetcher {
     }
     
     //  candle: valid value: M1/M30
-    //  http://localhost:4567/intraday?symbol=VNM&id=233&mid=0&frame=M1&candles=&startdate=20250503&starttime=1050
+    //  http://localhost:4567/intraday?symbol=VNM&id=233&mid=0&frame=M1&candles=&date=20250503&time=1050
     public void doGetIntraday(Request request, Response response){
         try{
             String symbol = request.queryParams("symbol");
@@ -209,7 +217,7 @@ public class Amifetcher {
                 
                 for (Priceboard ps: arr)
                 {
-                    sb.append(ps.toString());
+                    sb.append(ps.toStringWithDateEncoded());
                     sb.append('\n');
                 }
                 

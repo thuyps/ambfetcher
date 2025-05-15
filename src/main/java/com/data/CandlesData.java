@@ -282,7 +282,7 @@ public class CandlesData {
         return elapsed > (4*3600);  //  4hours
     }
     
-    public void writeTo(int time, xDataOutput aOut){
+    public void writeTo(xDataOutput aOut){
         aOut.writeUTF(symbol);
         int cnt = cursor;
         aOut.writeInt(cnt);
@@ -300,6 +300,7 @@ public class CandlesData {
     public xDataOutput writeTo(){
         xDataOutput o = new xDataOutput(64 + cursor * CANDLE_SIZE);
         
+        /*
         o.writeShort(12);   //  FILE_SHARE_DATA_VERSION
         o.writeUTF(symbol);
         o.writeByte(marketId);
@@ -316,6 +317,8 @@ public class CandlesData {
             o.writeInt(volume[i]);
             o.writeInt(date[i]);
         }        
+        */
+        writeTo(o);
         
         return o;
     }
