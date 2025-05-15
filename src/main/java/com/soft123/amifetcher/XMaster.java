@@ -108,6 +108,7 @@ public class XMaster extends MasterBase{
                             symbol, description, 0, 0, fileFNumber);
                 }
             }
+            logSymbols("/", "FOREX");
 
         } catch (Throwable e) {
             e.printStackTrace();

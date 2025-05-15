@@ -7,6 +7,7 @@ package com.soft123.amifetcher;
 import com.data.CandlesData;
 import xframe.framework.xDataInput;
 import xframe.framework.xFileManager;
+import xframe.utils.xUtils;
 
 
 /**
@@ -119,9 +120,12 @@ public class Master extends MasterBase{
                             symbol, description, 0, 0, fileFNumber);
                 }
             }
+            
+            logSymbols("/", "FOREX base");
 
         } catch (Throwable e) {
             e.printStackTrace();
         }
     }
+    
 }
