@@ -53,4 +53,14 @@ public class Priceboard {
                 );
         return s;
     }
+    
+    public String toStringWithDateEncoded(){
+        String sd = "" + _date;
+        String st = "" + _time;
+        String s = String.format("%s %s %s %.3f %.3f %.3f %.3f %.3f %d", sd, st,
+                _symbol,
+                _open, _highest, _lowest, _price, _prevClose, _volume
+                );
+        return s;
+    }
 }
