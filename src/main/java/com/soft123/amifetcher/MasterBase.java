@@ -9,6 +9,7 @@ import com.data.Priceboard;
 import com.data.VTDictionary;
 import java.util.ArrayList;
 import xframe.framework.xDataInput;
+import xframe.framework.xDataInputRandomAccessFile;
 import xframe.framework.xFileManager;
 import xframe.utils.xUtils;
 
@@ -97,28 +98,41 @@ public abstract class MasterBase {
         int headerRecordSize = HEADER_RECORD_SIZE(r);
         int recordSize = RECORD_SIZE(r);
 
-        xDataInput di = xFileManager.readFile(filePath);
+        xDataInputRandomAccessFile rdi = new xDataInputRandomAccessFile(filePath);
+        if (rdi.fileSize() == 0){
+            rdi.close();
+            return null;
+        }
         try {
             int totalRecord;
-            di.skip(2);
+            xDataInput di = rdi.seekTo(2, 10);
             totalRecord = di.readUShortBig();
             totalRecord -= 1;   //  header record
             
-            di.resetCursor();
-            di.skip(headerRecordSize);
-            
-            share = new CandlesData(r.shareId, r.symbol, r.marketId, totalRecord);
+            int dataSize = rdi.fileSize() - headerRecordSize;
 
-            int length = di.available();
+            int length = dataSize;
             int recordCount = length/recordSize;
             if (totalRecord > recordCount){
                 totalRecord = recordCount;
             }            
+            
+            int candleCnt = 256;
+            if (candleCnt > totalRecord){
+                candleCnt = totalRecord;
+            }
+            
+            share = new CandlesData(r.shareId, r.symbol, r.marketId, candleCnt);            
 
             byte[] p = new byte[recordSize];
-            for (int i = 0; i < totalRecord; i++) {    
+            int begin = totalRecord - candleCnt;
+            int neededDataSize = candleCnt*recordSize;
+            int offset = headerRecordSize + begin*recordSize;
+            di = rdi.seekTo(offset, neededDataSize);
+            
+            for (int i = 0; i < candleCnt; i++) {    
                 di.resetCursor();
-                di.skip(headerRecordSize + i*recordSize);
+                di.skip(i*recordSize);
                 
                 di.read(p, 0, recordSize);
                 
@@ -151,12 +165,55 @@ public abstract class MasterBase {
         int headerRecordSize = HEADER_RECORD_SIZE(r);
         int recordSize = RECORD_SIZE(r);
         
-        xDataInput di = xFileManager.readFile(filePath);
-        if (di == null){
+        xDataInputRandomAccessFile rdi = new xDataInputRandomAccessFile(filePath);
+        if (rdi.fileSize() == 0){
             xUtils.trace("");
         }
         try {
+            rdi.seekTo(2, 10);
             int totalRecord;
+            totalRecord = rdi.DI().readUShortBig();
+            totalRecord -= 1;   //  header record
+            
+            int dataSize = rdi.fileSize() - headerRecordSize;
+            
+            share.symbol = r.symbol;
+            share.shareId = r.shareId;
+            share.marketId = r.marketId;
+
+            int length = dataSize;
+            int recordCount = length/recordSize;
+            if (totalRecord > recordCount){
+                totalRecord = recordCount;
+            }            
+
+            byte[] p = new byte[recordSize];
+            int begin = totalRecord - candleCnt;
+            if (begin < 0){
+                begin = 0;
+            }
+            candleCnt = totalRecord - begin;
+            int neededDataSize = candleCnt*recordSize;
+            int offset = headerRecordSize + begin*recordSize;
+            xDataInput di = rdi.seekTo(offset, neededDataSize);
+            for (int i = 0; i < candleCnt; i++) {    
+                di.resetCursor();
+                di.skip(i*recordSize);
+                
+                di.read(p, 0, recordSize);
+                
+                float d = convertMBFToFloat(p, 0);
+                int date = convertSerialDateToLocalDate(d);
+                
+                float open = convertMBFToFloat(p, 4);
+                float hi = convertMBFToFloat(p, 8);
+                float low = convertMBFToFloat(p, 12);
+                float close = convertMBFToFloat(p, 16);
+                int vol = (int)(convertMBFToFloat(p, 20)/100);
+                
+                share.addCandle(close, open, hi, low, date, vol);
+            }
+            /*
             di.skip(2);
             totalRecord = di.readUShortBig();
             totalRecord -= 1;   //  header record
@@ -196,9 +253,12 @@ public abstract class MasterBase {
                 
                 share.addCandle(close, open, hi, low, date, vol);
             }
+*/
         } catch (Throwable e) {
             e.printStackTrace();
         }
+        
+        rdi.close();
     }
     
     private CandlesData readDataIntraday(stRecord r, int startDate, int startTime) {
@@ -206,30 +266,40 @@ public abstract class MasterBase {
         int headerRecordSize = HEADER_RECORD_SIZE(r);
         int recordSize = RECORD_SIZE(r);
         
-        xDataInput di = xFileManager.readFile(filePath);
+        xDataInputRandomAccessFile rdi = new xDataInputRandomAccessFile(filePath);
+        
         CandlesData share = null;
         try {
             int totalRecord;
-            di.skip(2);
+            xDataInput di = rdi.seekTo(2, 10);
             totalRecord = di.readUShortBig();
             totalRecord -= 1;   //  header record
 
-            di.resetCursor();
-            di.skip(headerRecordSize);
+            int dataSize = rdi.fileSize() - headerRecordSize;
 
-            int length = di.available();
+            int length = dataSize;
             int recordCount = length/recordSize;
             if (totalRecord > recordCount){
                 totalRecord = recordCount;
             }
             
-            share = new CandlesData(r.shareId, r.symbol, r.marketId, totalRecord);
+            int candleCnt = 512;
+            if (candleCnt > totalRecord){
+                candleCnt = totalRecord;
+            }
+            
+            share = new CandlesData(r.shareId, r.symbol, r.marketId, candleCnt);
             share.isIntraday = this.isIntraday;
 
             byte[] p = new byte[recordSize];
-            for (int i = 0; i < totalRecord; i++) {    
+            int neededDataSize = candleCnt*recordSize;
+            int begin = totalRecord - candleCnt;
+            int offset = headerRecordSize + begin*recordSize;
+            di = rdi.seekTo(offset, neededDataSize);
+            
+            for (int i = 0; i < candleCnt; i++) {    
                 di.resetCursor();
-                di.skip(headerRecordSize + i*recordSize);
+                di.skip(i*recordSize);
                 
                 di.read(p, 0, recordSize);
                 
@@ -268,6 +338,8 @@ public abstract class MasterBase {
             e.printStackTrace();
         }
         
+        rdi.close();
+        
         return share;
     }
     
@@ -277,18 +349,20 @@ public abstract class MasterBase {
         int headerRecordSize = HEADER_RECORD_SIZE(r);
         int recordSize = RECORD_SIZE(r);
         
-        xDataInput di = xFileManager.readFile(filePath);
+        xDataInputRandomAccessFile rdi = new xDataInputRandomAccessFile(filePath);
 
         try {
             int totalRecord;
-            di.skip(2);
+            xDataInput di = rdi.seekTo(2, 10);
             totalRecord = di.readUShortBig();
             totalRecord -= 1;   //  header record
 
             di.resetCursor();
             di.skip(headerRecordSize);
 
-            int length = di.available();
+            int dataSize = rdi.fileSize() - headerRecordSize;
+            int length = dataSize;
+            
             int recordCount = length/recordSize;
             if (totalRecord > recordCount){
                 totalRecord = recordCount;
@@ -300,13 +374,18 @@ public abstract class MasterBase {
             share.isIntraday = this.isIntraday;
 
             byte[] p = new byte[recordSize];
-            int begin = totalRecord - candleCnt;
-            if (begin < 0){
-                begin = 0;
+            if (candleCnt > totalRecord){
+                candleCnt = totalRecord;
             }
-            for (int i = begin; i < totalRecord; i++) {    
+            
+            int neededDataSize = candleCnt*recordSize;
+            int begin = totalRecord - candleCnt;
+            int offset = headerRecordSize + begin*recordSize;
+            di = rdi.seekTo(offset, neededDataSize);
+            
+            for (int i = 0; i < totalRecord; i++) {    
                 di.resetCursor();
-                di.skip(headerRecordSize + i*recordSize);
+                di.skip(i*recordSize);
                 
                 di.read(p, 0, recordSize);
                 
@@ -335,6 +414,8 @@ public abstract class MasterBase {
         } catch (Throwable e) {
             e.printStackTrace();
         }
+        
+        rdi.close();
     }
     
     private void readDataIntraday(stRecord r, CandlesData share, boolean lastPrice           

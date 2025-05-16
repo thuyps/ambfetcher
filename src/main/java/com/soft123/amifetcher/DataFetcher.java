@@ -141,7 +141,7 @@ public class DataFetcher {
 
                                     String filename = modifiedFile.toString();
                                     filename = filename.toLowerCase();
-
+                                    
                                     if (filename.endsWith(".mwd")) {
                                         String ss[] = filename.split("[/]");
                                         filename = ss[ss.length-1];
