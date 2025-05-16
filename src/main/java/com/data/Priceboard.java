@@ -13,7 +13,7 @@ import xframe.utils.xUtils;
  */
 public class Priceboard {
     public String _symbol;
-    public float _price;
+    private float _price;
     public float _prevClose;
     public float _highest;
     public float _lowest;
@@ -22,14 +22,27 @@ public class Priceboard {
     public int _volume; //  total volume of the day
     public long _timeUpdate;
     public long _timeUpdateOpen;
-    public int _fileId;
+    
     public int _date;
     public int _time;
     
     public int _avgVolume;  //  *10
+    public int _preDate;
+    public int _todayDate;
     
-    public stRecord rIntrday;  //  intrday record - for quick ref
-    public stRecord rHistory;         //  historical record
+    public stRecord recordD;    //  daily
+    public stRecord recordI;    //  intraday
+    
+    public void setClose(float c){
+        _price = c;
+        _timeUpdate = System.currentTimeMillis();
+    }
+    public float getClose(){
+        return _price;
+    }
+    public boolean isExpired(){
+        return System.currentTimeMillis() - _timeUpdate > 30*1000;
+    }
     
     public Priceboard(String symbol){
         _symbol = symbol;

@@ -64,10 +64,10 @@ public class Amifetcher {
     public Amifetcher(){
         _dataHistorical = new DataFetcher("./datapro");
         _dataHistorical.setPackedFolder(PACKED_FOLDER);
-        _dataHistorical.setup(true, false);
+        _dataHistorical.setup(true, true);
         
         _dataHistoricalM1 = new DataFetcher("./datatick");
-        _dataHistoricalM1.setup(false, true);
+        _dataHistoricalM1.setup(false, false);
     }
 
     //  daily only
@@ -202,14 +202,14 @@ public class Amifetcher {
             String ss[] = symbols.split("[,]");
             ArrayList<Priceboard> arr = null;
             if (ss.length == 0 && symbols.compareTo("*") == 0){
-                arr = _dataHistoricalM1.getPriceboard(null);
+                arr = _dataHistorical.getPriceboard(null);
             }
             else{
                 ArrayList<String> arrSymb = new ArrayList<>();
                 for (String sb: ss){
                     arrSymb.add(sb);
                 }
-                arr = _dataHistoricalM1.getPriceboard(arrSymb);
+                arr = _dataHistorical.getPriceboard(arrSymb);
             }
             
             if(arr != null && arr.size() > 0){

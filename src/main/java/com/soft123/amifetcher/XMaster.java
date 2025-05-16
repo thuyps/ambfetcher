@@ -20,8 +20,8 @@ public class XMaster extends MasterBase{
     private static final int HEADER_SIZE_XMASTER = 150;
     private static final int RECORD_SIZE_XMASTER = 150;
     
-    public XMaster(String folder, boolean intraday){
-        super(folder, intraday);
+    public XMaster(String folder, boolean intraday, VTDictionary priceboard){
+        super(folder, intraday, priceboard);
     }
     
         //  ./base/MASTER

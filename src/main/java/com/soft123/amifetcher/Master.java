@@ -5,6 +5,7 @@
 package com.soft123.amifetcher;
 
 import com.data.CandlesData;
+import com.data.VTDictionary;
 import xframe.framework.xDataInput;
 import xframe.framework.xFileManager;
 import xframe.utils.xUtils;
@@ -23,8 +24,8 @@ public class Master extends MasterBase{
      * @param folder
      * @param intraday
      */
-    public Master(String folder, boolean intraday){
-        super(folder, intraday);
+    public Master(String folder, boolean intraday, VTDictionary priceboard){
+        super(folder, intraday, priceboard);
     }
     
     //  ./base/MASTER

@@ -6,6 +6,7 @@ package com.soft123.amifetcher;
 
 import com.data.CandlesData;
 import com.data.Priceboard;
+import com.data.VTDictionary;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -16,6 +17,7 @@ import java.nio.file.WatchService;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Iterator;
 import xframe.framework.xDataInput;
 import xframe.framework.xDataOutput;
 import xframe.framework.xFileManager;
@@ -35,9 +37,11 @@ public class DataFetcher {
     Master _masterDaily;
     Master _masterIntraday;
     boolean _packableDB;
+    VTDictionary _priceboardMap;
     
     public DataFetcher(String folder){
         _folder = folder;
+        _priceboardMap = new VTDictionary();
         
         loadMasters();
     }
@@ -47,34 +51,38 @@ public class DataFetcher {
     }
    
     public void loadMasters(){
-        _xmasterDaily = new XMaster(_folder, false);
-        _xmasterIntraday = new XMaster(_folder, true);
-
-        _masterDaily = new Master(_folder, false);
-        _masterIntraday = new Master(_folder, true);
+        _xmasterDaily = new XMaster(_folder, false, _priceboardMap);
+        _masterDaily = new Master(_folder, false, _priceboardMap);
+        
+        _xmasterIntraday = new XMaster(_folder, true, _priceboardMap);
+        _masterIntraday = new Master(_folder, true, _priceboardMap);
     }    
     
-    //  sort by average volume
     ArrayList<Priceboard> _arrPriceboard;
-    public void setup(boolean packableDB, boolean rtPriceboard){
-        _arrPriceboard = new ArrayList<>();
-        
-        _masterIntraday.getPriceboard(null, _arrPriceboard);
-        _xmasterIntraday.getPriceboard(null, _arrPriceboard);
-        for (Priceboard ps: _arrPriceboard)
-        {
-            if (_masterDaily.contains(ps._symbol)){
-                stRecord r = _masterDaily.getRecord(ps._symbol);
-                ps.rHistory = r;
-            }
-            else{
-                stRecord r = _xmasterDaily.getRecord(ps._symbol);
-                ps.rHistory = r;
+    ArrayList<Priceboard> Priceboard(){
+        if (_arrPriceboard == null){
+            _arrPriceboard = new ArrayList<>();
+        }
+        if (_arrPriceboard.size() == 0){
+            Iterator<String> keys = _priceboardMap.keys();
+
+            while (keys.hasNext()) {
+                String key = keys.next();
+                Priceboard ps = (Priceboard)_priceboardMap.objectForKeyO(key);
+                _arrPriceboard.add(ps);
             }
         }
-        //=============================
+        
+        ArrayList<Priceboard> arr = new ArrayList<>();
+        arr.addAll(_arrPriceboard);
+        return arr;
+    }
+
+    public void setup(boolean packableDB, boolean rtPriceboard){
+        ArrayList<Priceboard> arr = Priceboard();
+        
         _packableDB = packableDB;
-        if (packableDB){
+        if (packableDB || rtPriceboard){
             _masterIntraday.filterVNSymbols(_arrPriceboard);
             _xmasterIntraday.filterVNSymbols(_arrPriceboard);
 
@@ -103,20 +111,92 @@ public class DataFetcher {
         }
         
         if (rtPriceboard){
+            guardDailyFilesForPriceboard();
             guardIntradayFilesForPriceboard();
         }
-        
-        /*
-        if (_arrPriceboard.size() < 10){
-            return;
-        }
-        
-        for (int i = 0; i < 10; i++){
-            Priceboard ps = _arrPriceboard.get(i);
-            xUtils.trace(ps.toString());
-        }
-*/
     }
+    
+    private void guardDailyFilesForPriceboard(){
+        Runnable r = new Runnable() {
+            @Override
+            public void run() {
+                String folderToGuard = String.format("%s", _folder);
+
+                try{
+                    Path path = Paths.get(folderToGuard);
+                    WatchService watchService = FileSystems.getDefault().newWatchService();
+                    path.register(watchService, StandardWatchEventKinds.ENTRY_MODIFY, StandardWatchEventKinds.ENTRY_CREATE);
+
+                    System.out.println("Đang theo dõi thư mục...");
+
+                    while (true) {
+                        WatchKey key = watchService.take();
+
+                        for (WatchEvent<?> event : key.pollEvents()) {
+                            //System.out.println("Sự kiện: " + event.kind() + " - File: " + event.context());
+
+                            if (event.kind() == StandardWatchEventKinds.ENTRY_MODIFY) {
+                                try{
+                                    Path modifiedFile = (Path) event.context();
+
+                                    String filename = modifiedFile.toString();
+                                    filename = filename.toLowerCase();
+
+                                    if (filename.endsWith(".mwd")) {
+                                        String ss[] = filename.split("[/]");
+                                        filename = ss[ss.length-1];
+
+                                        //  Fxxxx.MDW
+                                        filename = filename.replace(".mwd", "");
+                                        filename = filename.replace("f", "");
+
+                                        int fileId = xUtils.stringToInt(filename);
+                                        if (fileId > 0){
+                                            Priceboard ps = (Priceboard)_xmasterDaily._priceboardMap.objectForKeyO("d_" + fileId);
+                                            if (ps != null){
+                                                _xmasterDaily.updatePriceboardPriceD(ps._symbol);
+                                            }
+                                        }
+                                    }
+                                    else if (filename.endsWith(".dat")){
+                                        String ss[] = filename.split("[/]");
+                                        filename = ss[ss.length-1];
+
+                                        //  Fxxxx.MDW
+                                        filename = filename.replace(".dat", "");
+                                        filename = filename.replace("f", "");
+
+                                        int fileId = xUtils.stringToInt(filename);
+                                        if (fileId > 0){
+                                            Priceboard ps = (Priceboard)_xmasterDaily._priceboardMap.objectForKeyO("d_" + fileId);
+                                            if (ps != null){
+                                                _xmasterDaily.updatePriceboardPriceD(ps._symbol);
+                                            }
+                                        }
+                                    }
+                                }
+                                catch(Throwable e1){
+                                    e1.printStackTrace();
+                                }
+                                System.out.println(String.format("Modifed %s/%s", _folder, event.context()));
+                            }
+                        }
+
+                        boolean valid = key.reset();
+                        if (!valid) {
+                            break;
+                        }
+                    }    
+                }
+                catch(Throwable e){
+                    e.printStackTrace();
+                }                
+            }
+        };
+        
+        new Thread(r).start();
+
+    } 
     
     private void guardIntradayFilesForPriceboard(){
         Runnable r = new Runnable() {
@@ -154,9 +234,9 @@ public class DataFetcher {
 
                                         int fileId = xUtils.stringToInt(filename);
                                         if (fileId > 0){
-                                            Priceboard ps = (Priceboard)_xmasterIntraday.dictPriceboard.objectForKeyO("" + fileId);
+                                            Priceboard ps = (Priceboard)_xmasterIntraday._priceboardMap.objectForKeyO("i_" + fileId);
                                             if (ps != null){
-                                                _xmasterIntraday.updatePriceboard(ps._symbol);
+                                                _xmasterIntraday.updatePriceboardPriceIntraday(ps._symbol);
                                             }
                                         }
                                     }
@@ -165,14 +245,14 @@ public class DataFetcher {
                                         filename = ss[ss.length-1];
 
                                         //  Fxxxx.MDW
-                                        filename = filename.replace(".mwd", "");
+                                        filename = filename.replace(".dat", "");
                                         filename = filename.replace("f", "");
 
                                         int fileId = xUtils.stringToInt(filename);
                                         if (fileId > 0){
-                                            Priceboard ps = (Priceboard)_masterIntraday.dictPriceboard.objectForKeyO("" + fileId);
+                                            Priceboard ps = (Priceboard)_masterIntraday._priceboardMap.objectForKeyO("i_" + fileId);
                                             if (ps != null){
-                                                _masterIntraday.updatePriceboard(ps._symbol);
+                                                _masterIntraday.updatePriceboardPriceIntraday(ps._symbol);
                                             }
                                         }
                                     }
@@ -180,7 +260,7 @@ public class DataFetcher {
                                 catch(Throwable e1){
                                     e1.printStackTrace();
                                 }
-                                System.out.println("File is modifed: " + event.context());
+                                System.out.println(String.format("Modifed %s/%s", _folder, event.context()));
                             }
                         }
 
@@ -212,7 +292,7 @@ public class DataFetcher {
 
         for (int i = 0; i < total; i++){
             Priceboard ps = _arrPriceboard.get(i);
-            stRecord r = ps.rHistory;
+            stRecord r = ps.recordD;
             boolean ok = _masterDaily.readData(r.shareId, r.symbol, r.marketId, candleCnt, share);
             if (!ok){
                 _xmasterDaily.readData(r.shareId, r.symbol, r.marketId, candleCnt, share);
@@ -281,7 +361,7 @@ public class DataFetcher {
         
         for (int i = 0; i < total; i++){
             Priceboard ps = _arrPriceboard.get(i);
-            stRecord r = ps.rHistory;
+            stRecord r = ps.recordI;
             
             boolean ok = _masterIntraday.readData(r.shareId, r.symbol, r.marketId, totalCandles, share);
             if (!ok){
@@ -334,8 +414,20 @@ public class DataFetcher {
     {
         ArrayList<Priceboard> arrPriceboard = new ArrayList<>();
         
-        _masterIntraday.getPriceboard(arrSymbol, arrPriceboard);
-        _xmasterIntraday.getPriceboard(arrSymbol, arrPriceboard);
+        for (String sb: arrSymbol){
+            Priceboard ps = (Priceboard)_priceboardMap.objectForKeyO(sb);
+            if (ps != null){
+                if (ps.isExpired()){
+                    if (_masterDaily.contains(ps._symbol)){
+                        _masterDaily.updatePriceboardPriceD(ps._symbol);
+                    }
+                    else if (_xmasterDaily.contains(ps._symbol)){
+                        _xmasterDaily.updatePriceboardPriceD(ps._symbol);
+                    }
+                }
+                arrPriceboard.add(ps);
+            }
+        }
         
         return arrPriceboard;
     }
