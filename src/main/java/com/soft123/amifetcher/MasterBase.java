@@ -632,4 +632,23 @@ public abstract class MasterBase {
             
         }
     }
+    
+    public void logSymbols(String contain, String name){
+        xUtils.trace(String.format("================%s================", name));
+        int ID = 0;
+        StringBuffer sb = new StringBuffer();
+        sb.append("INSERT INTO [dbo].[crypto] ([Symbol], [crypto_id]) VALUES\n");
+        for (stRecord r: _records){
+            
+            if (r.symbol.contains("/")){
+                //xUtils.trace(r.symbol);
+                String s = String.format("('%s', %d),", r.symbol, 500010+ID++);
+                sb.append(s);
+                sb.append("\n");
+            }
+        }
+        
+        xUtils.trace(sb.toString());
+        xUtils.trace("==============================");
+    }    
 }
