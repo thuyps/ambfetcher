@@ -2286,6 +2286,9 @@ public class xUtils {
     }
     
     public static int dateFromPackagedDate(int packedDateTime){
+        if (packedDateTime == 0){
+            return 0;
+        }
         int my = (packedDateTime>>24)&0xff;
         int year = 2020+(my/12);
         int month = (my%12)+1;
@@ -2297,6 +2300,9 @@ public class xUtils {
     }
     
     public static int timeFromPackagedDate(int packedDateTime){
+        if (packedDateTime == 0){
+            return 0;
+        }
         int my = (packedDateTime>>24)&0xff;
         int year = 2020+(my/12);
         int month = (my%12)+1;

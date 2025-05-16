@@ -66,7 +66,7 @@ public class Amifetcher {
         _dataHistorical.setPackedFolder(PACKED_FOLDER);
         _dataHistorical.setup(true, false);
         
-        _dataHistoricalM1 = new DataFetcher("./datapro");//datatick");
+        _dataHistoricalM1 = new DataFetcher("./datatick");
         _dataHistoricalM1.setup(false, true);
     }
 
@@ -76,7 +76,7 @@ public class Amifetcher {
         try{
             String symbol = request.queryParams("symbol");
             String startDate = request.queryParams("date");
-            int date = xUtils.stringYYYYMMDDToDateInt(startDate, "");
+            int date = xUtils.stringToInt(startDate);
             
             int candles = xUtils.stringToInt(request.queryParams("candles"));
             String frame = request.queryParams("frame");
@@ -130,10 +130,10 @@ public class Amifetcher {
     public void doGetIntraday(Request request, Response response){
         try{
             String symbol = request.queryParams("symbol");
-            String startDate = request.queryParams("startdate");
-            String startTime = request.queryParams("starttime");
-            int date = xUtils.stringYYYYMMDDToDateInt(startDate, "");
-            int time = xUtils.stringHHMMSSToTimeInt(startTime, "");
+            String startDate = request.queryParams("date");
+            String startTime = request.queryParams("time");
+            int date = xUtils.stringToInt(startDate);
+            int time = xUtils.stringToInt(startTime);
             String frame = request.queryParams("frame");            
             int candles = xUtils.stringToInt(request.queryParams("candles"));
 

@@ -180,7 +180,7 @@ public class DataFetcher {
                                 catch(Throwable e1){
                                     e1.printStackTrace();
                                 }
-                                System.out.println("File đã bị sửa đổi: " + event.context());
+                                System.out.println("File is modifed: " + event.context());
                             }
                         }
 
@@ -342,6 +342,9 @@ public class DataFetcher {
     
     //  history: candle type: D
     public CandlesData getHistory(int shareId, String symbol, int market, int date){
+        if (date == 0){
+            return getHistory(shareId, symbol, 3000);
+        }
         CandlesData share = _xmasterDaily.readData(shareId, symbol, market, date, 0);
         if (share == null){
             share = _masterDaily.readData(shareId, symbol, market, date, 0);
@@ -359,6 +362,9 @@ public class DataFetcher {
     
     //  intraday: candle type: M5, M1 (if using datatick)
     public CandlesData getIntraday(int shareId, String symbol, int market, int date, int time, int candleType){
+        if (date == 0){
+            return getIntraday(shareId, symbol, 3000, candleType);
+        }
         CandlesData share = null;
         if (_xmasterIntraday.contains(symbol)){
             determineCandleFrame(_xmasterIntraday, symbol, candleType);
