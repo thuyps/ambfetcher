@@ -441,6 +441,9 @@ public class DataFetcher {
         if (share == null){
             share = _masterDaily.readData(shareId, symbol, market, date, 0);
         }        
+        if (share != null){
+            share.candleFrame = CandlesData.CANDLE_DAILY;
+        }
         return share;
     }
     
@@ -449,6 +452,9 @@ public class DataFetcher {
         if (share == null){
             share = _masterDaily.readData(shareId, symbol, candles);
         }        
+        if (share != null){
+            share.candleFrame = CandlesData.CANDLE_DAILY;
+        }
         return share;
     }
     

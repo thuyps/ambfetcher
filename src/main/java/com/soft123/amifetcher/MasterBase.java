@@ -545,11 +545,16 @@ public abstract class MasterBase {
     public CandlesData readData(int shareId, String symbol, 
             int candleCnt)
     {
-        CandlesData share = new CandlesData(shareId, symbol, 0, candleCnt);
-        
-        readData(shareId, symbol, 0, candleCnt, share);
-        
-        return share;
+        if (contains(symbol)){
+            CandlesData share = new CandlesData(shareId, symbol, 0, candleCnt);
+
+            readData(shareId, symbol, 0, candleCnt, share);
+
+            return share;
+        }
+        else{
+            return null;
+        }
     }
     
     protected CandlesData sharedCandlesData;

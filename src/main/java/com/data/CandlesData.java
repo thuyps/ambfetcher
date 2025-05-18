@@ -16,6 +16,7 @@ import xframe.utils.xUtils;
 public class CandlesData {
     public static final int CANDLE_DAILY = 1000;
     public static final int CANDLE_M1 = 1;
+    public static final int CANDLE_M5 = 5;
     public static final int CANDLE_M30 = 30;
     
     static int CANDLE_SIZE = 28;
@@ -33,6 +34,8 @@ public class CandlesData {
     public int firsDate;
     public long timeCreated;
     public boolean isIntraday;
+    
+    public int candleFrame;
 
     int cursor;
     public CandlesData(int shareId, String symbol, int market){
@@ -164,6 +167,10 @@ public class CandlesData {
         return cursor;
     }
     
+    public int measureDataSize(){
+        return cursor*(6*4) + 12 + 8 + 32;  //  32: future
+    }
+    
     public void clear(){
         cursor = 0;
     }
@@ -284,6 +291,22 @@ public class CandlesData {
     
     public void writeTo(xDataOutput aOut){
         aOut.writeUTF(symbol);
+        int cnt = cursor;
+        aOut.writeInt(cnt);
+        for (int i = 0; i < cnt; i++){
+            aOut.writeInt(date[i]);
+            //  o/c/l/h/v/d
+            aOut.writeFloat2(open[i]);
+            aOut.writeFloat2(close[i]);
+            aOut.writeFloat2(lo[i]);
+            aOut.writeFloat2(hi[i]);
+            aOut.writeInt(volume[i]);
+        }
+    }
+    
+    public void writeTo2(xDataOutput aOut){
+        aOut.writeUTF(symbol);
+        aOut.writeInt(candleFrame);
         int cnt = cursor;
         aOut.writeInt(cnt);
         for (int i = 0; i < cnt; i++){

@@ -71,9 +71,11 @@ public class Amifetcher {
     }
 
     //  daily only
-    //  http://localhost:4567/history?symbol=VNM&id=233&mid=0&candles=&date=20250303&frame=D/M1/M5/M30
+    //  http://localhost:4567/history?symbol=VNM&id=233&mid=0&candles=&date=20250303&frame=D/M1/M5/M30&ver=
     public void doGetHistory(Request request, Response response){
         try{
+            String sver = request.queryParams("ver");
+            int version = xUtils.stringToInt(sver);
             String symbol = request.queryParams("symbol");
             String startDate = request.queryParams("date");
             int date = xUtils.stringToInt(startDate);
@@ -103,7 +105,13 @@ public class Amifetcher {
             }
             
             if(share != null){
-                xDataOutput o = share.writeTo();
+                xDataOutput o = new xDataOutput(share.measureDataSize());
+                if (version == 2){
+                    share.writeTo2(o);
+                }
+                else{
+                    share.writeTo(o);
+                }
                 if (o != null && o.size() > 0){
                     response.type("application/octet-stream");
                     
@@ -125,10 +133,13 @@ public class Amifetcher {
         }
     }
     
+    
     //  candle: valid value: M1/M30
     //  http://localhost:4567/intraday?symbol=VNM&id=233&mid=0&frame=M1&candles=&date=20250503&time=1050
     public void doGetIntraday(Request request, Response response){
         try{
+            String sver = request.queryParams("ver");
+            int version = xUtils.stringToInt(sver);
             String symbol = request.queryParams("symbol");
             String startDate = request.queryParams("date");
             String startTime = request.queryParams("time");
@@ -144,12 +155,16 @@ public class Amifetcher {
             int market = xUtils.stringToInt(sid);
 
             CandlesData share = null;
-            if (frame.equalsIgnoreCase("M30")){
+            if (frame.equalsIgnoreCase("M30") || frame.equalsIgnoreCase("M5")){
+                int candleFrame = frame.equalsIgnoreCase("M30")?CandlesData.CANDLE_M30:CandlesData.CANDLE_M5;
                 if (candles > 0){
-                    share = _dataHistorical.getIntraday(shareId, symbol, candles, CandlesData.CANDLE_M30);
+                    share = _dataHistorical.getIntraday(shareId, symbol, candles, candleFrame);
                 }
                 else{
-                    share = _dataHistorical.getIntraday(shareId, symbol, market, date, time, CandlesData.CANDLE_M30);
+                    share = _dataHistorical.getIntraday(shareId, symbol, market, date, time, candleFrame);
+                }
+                if (share != null){
+                    share.candleFrame = candleFrame;
                 }
             }
             else if (frame.equalsIgnoreCase("M1")){
@@ -169,10 +184,20 @@ public class Amifetcher {
                         share = _dataHistorical.getIntraday(shareId, symbol, market, date, time, CandlesData.CANDLE_M1);
                     }
                 }
+                if (share != null){
+                    share.candleFrame = CandlesData.CANDLE_M1;
+                }
             }
             
             if(share != null){
-                xDataOutput o = share.writeTo();
+                xDataOutput o = new xDataOutput(share.measureDataSize());
+                if (version == 2){
+                    share.writeTo2(o);
+                }
+                else{
+                    share.writeTo(o);
+                }
+                
                 if (o != null && o.size() > 0){
                     response.type("application/octet-stream");
                     
