@@ -36,8 +36,11 @@ public class DataFetcher {
     XMaster _xmasterIntraday;
     Master _masterDaily;
     Master _masterIntraday;
-    boolean _packableDB;
+
     VTDictionary _priceboardMap;
+    
+    boolean _packableDB;
+    VTDictionary vars = new VTDictionary();
     
     public DataFetcher(String folder){
         _folder = folder;
@@ -68,6 +71,9 @@ public class DataFetcher {
 
             while (keys.hasNext()) {
                 String key = keys.next();
+                if (key.indexOf("d_") == 0 || key.indexOf("i_") == 0){
+                    continue;
+                }
                 Priceboard ps = (Priceboard)_priceboardMap.objectForKeyO(key);
                 _arrPriceboard.add(ps);
             }
@@ -280,7 +286,8 @@ public class DataFetcher {
 
     }    
     
-    public void packHistoricalDB(int candleCnt, String type)
+    //  daily - D
+    public void packDailyDB(int candleCnt)
     {
         CandlesData share = new CandlesData(0, "", candleCnt);
         
@@ -299,59 +306,113 @@ public class DataFetcher {
             }
             
             shareCnt++;
-            share.writeToOutputForPacking(o);
+            share.writeToOutputForPacking(o, candleCnt);
         }
         
         //  shareCnt
         int totalSize = o.size();
         o.setCursor(0);
         o.writeInt(shareCnt);
-        o.size();
         
-        o.setCursor(totalSize);
+        o.setCursor(totalSize); //  size to the end
         
-        String filename = historicalFilename(type);
+        String filename = packedFilename(CandlesData.CANDLE_DAILY);
         xFileManager.saveFile(o, _packedFolder, filename);
     }
     
-    String historicalFilename(String type){
-        String filename = String.format("packed_%s.his", type);
+    String packedFilename(int candleFrame){
+        String filename = String.format("packed_m%d.his", candleFrame);
         return filename;
     }
     
-    public xDataInput getHistoricalDB(String type){
+    public xDataInput getHistoricalDB(int frame, int candles){
         if (!_packableDB){
             return null;
         }
+        
+        String filename = packedFilename(frame);
 
-        xDataInput di = xFileManager.readFile(_packedFolder, historicalFilename(type));
+        String createdKey = String.format("time_%s", filename);
+        long createdTime = vars.objectForKeyAsLong(createdKey);
+        long now = System.currentTimeMillis();
+        double elapsed = (now - createdTime)/1000;
+        
+        float expiredSeconds = frame/2;
+        if (elapsed > expiredSeconds){
+            xFileManager.removeFile(_packedFolder, filename);
+        }
+
+        xDataInput di = xFileManager.readFile(_packedFolder, filename);
         if (di == null){
-            int candleCnt = 128;
-            int ht = type.charAt(1);
-            if (ht == 1){
-                candleCnt = 226*4;
-            }
-            else if (ht == 2){
-                candleCnt = 226*2;
-            }
-            else{
-                candleCnt = 226;
-            }
-            packHistoricalDB(candleCnt, type);
+            int packingCandles = frame == CandlesData.CANDLE_DAILY?3*250:250;
+            doPackDB(frame, packingCandles);
+            vars.setValue(now, createdKey);
         }
         
-        di = xFileManager.readFile(_packedFolder, historicalFilename(type));
+        di = xFileManager.readFile(_packedFolder, filename);
+        if (candles < 30){
+            //  snapshot, extract frame
+            di = extractSnapshotFromDB(candles, di);
+        }
         return di;
     }
     
-    void packIntradayDB(int candleCnt, int minutesPerCandle, String type)
+    xDataInput extractSnapshotFromDB(int candles, xDataInput di)
+    {
+        try{           
+            int CANDLE_SIZE = 6*4;
+            
+            int shareCnt = di.readInt();
+            int size = shareCnt*(candles*CANDLE_SIZE + 20);
+            xDataOutput o = new xDataOutput(size);
+
+            o.writeInt(shareCnt);
+            
+            for (int i = 0; i < shareCnt; i++){
+                String symbol = di.readUTF();
+                int candlesOfShare = di.readInt();
+                di.markCursor();
+                
+                int candlesToRead = candles < candlesOfShare?candles:candlesOfShare;
+                int begin = candlesOfShare - candlesToRead;
+                if (begin < 0){
+                    begin = 0;
+                }
+                //  seek to 
+                int offset = begin*CANDLE_SIZE;
+                di.skip(offset);
+                
+                o.writeUTF(symbol);
+                o.writeInt(candlesToRead);
+                o.write(di.getBytes(), di.getCurrentOffset(), candlesToRead*CANDLE_SIZE);
+                
+                di.resetCursorToMarked();
+                di.skip(candlesOfShare*CANDLE_SIZE);
+            }
+            
+            di = new xDataInput(o.getBytes(), 0, o.size());
+            return di;
+        }
+        catch(Throwable e){
+            e.printStackTrace();
+        }
+        
+        return null;
+    }
+    
+    void doPackDB(int frame, int candles)
     {
         if (!_packableDB){
             return;
         }
-        CandlesData share = new CandlesData(0, "", candleCnt);
+        if (frame == CandlesData.CANDLE_DAILY){
+            packDailyDB(candles);
+            return;
+        }
+        //=================================
+        CandlesData share = new CandlesData(0, "", 0);
         
-        int totalCandles = candleCnt*minutesPerCandle;
+        int totalCandles = 0;//candleCnt*minutesPerCandle;
         
         xDataOutput o = new xDataOutput(20*1024*1024);
         o.setCursor(4);
@@ -359,9 +420,36 @@ public class DataFetcher {
         
         int total = 490 < _arrPriceboard.size()?490:_arrPriceboard.size();
         
+        //-------------------------
+        
         for (int i = 0; i < total; i++){
             Priceboard ps = _arrPriceboard.get(i);
             stRecord r = ps.recordI;
+            if (r == null){
+                xUtils.trace("no way!!!");
+                continue;
+            }
+            
+            //------total candles need to read:
+            if (r.period == 0){
+                if (_masterIntraday.contains(r.symbol)){
+                    determineCandleFrame(_masterIntraday, r.symbol);
+                }
+                else{
+                    determineCandleFrame(_xmasterDaily, r.symbol);
+                }
+            }
+            if (r.period == 0){
+                //  daily
+                totalCandles = candles;
+            }
+            else if (frame > r.period){
+                totalCandles = candles*frame/r.period;
+            }
+            else{
+                totalCandles = candles;
+            }
+            //--------------------------------
             
             boolean ok = _masterIntraday.readData(r.shareId, r.symbol, r.marketId, totalCandles, share);
             if (!ok){
@@ -369,47 +457,40 @@ public class DataFetcher {
             }
             
             shareCnt++;
-            share.changeCandleType(minutesPerCandle);
-            share.writeToOutputForPacking(o);
+            share.changeCandleType(frame);
+            
+            //  write to outputData
+            share.writeToOutputForPacking(o, candles);
         }
 
         //  shareCnt
         int totalSize = o.size();
         o.setCursor(0);
         o.writeInt(shareCnt);
-        o.size();
         
-        o.setCursor(totalSize);
+        o.setCursor(totalSize);     //  size to the end
         
-        String filename = intradayFilename(type);
+        String filename = packedFilename(frame);
         xFileManager.saveFile(o, _packedFolder, filename);
     }
     
-    String intradayFilename(String type){
-        String filename = String.format("packed_%s.dat", type);
-        return filename;
-    }
-        
-    public xDataInput getIntradayDB(String type){
+    /*
+    public xDataInput getIntradayDB(int candleFrame){
         if (!_packableDB){
             return null;
         }
         
+        String type = String.format("m%02d", candleFrame);
         String filename = intradayFilename(type);
         
         xDataInput di = xFileManager.readFile(_packedFolder, filename);
         if (di == null){
-            if (type.compareTo("M5") == 0){
-                packIntradayDB(150, 5, type);
-            }
-            else{
-                packIntradayDB(150, 30, type);
-            }
+            packIntradayDB(150, candleFrame, type);
         }
         di = xFileManager.readFile(_packedFolder, filename);
         return di;
     }    
-    
+    */
     public ArrayList<Priceboard> getPriceboard(ArrayList<String> arrSymbol)
     {
         ArrayList<Priceboard> arrPriceboard = new ArrayList<>();
@@ -465,7 +546,7 @@ public class DataFetcher {
         }
         CandlesData share = null;
         if (_xmasterIntraday.contains(symbol)){
-            determineCandleFrame(_xmasterIntraday, symbol, candleType);
+            determineCandleFrame(_xmasterIntraday, symbol);
             
             share = _xmasterIntraday.readData(shareId, symbol, market, date, time);
             stRecord r = _xmasterIntraday.getRecord(symbol);
@@ -478,7 +559,7 @@ public class DataFetcher {
             }
         }
         else if (_masterIntraday.contains(symbol)){
-            determineCandleFrame(_masterIntraday, symbol, candleType);
+            determineCandleFrame(_masterIntraday, symbol);
             
             share = _masterIntraday.readData(shareId, symbol, market, date, time);
             stRecord r = _masterIntraday.getRecord(symbol);
@@ -494,7 +575,7 @@ public class DataFetcher {
         return share;
     }
     
-    private void determineCandleFrame(MasterBase master, String symbol, int candleType)
+    private void determineCandleFrame(MasterBase master, String symbol)
     {
         stRecord r = master.getRecord(symbol);
         if (r != null && r.period == 0){
@@ -514,6 +595,7 @@ public class DataFetcher {
                         int m1 = xUtils.EXTRACT_HOUR(time)*60 + xUtils.EXTRACT_MINUTE(time);
                         if (m1 > m0 && m1 - m0 < minPeriod){
                             minPeriod = m1 - m0;
+                            m0 = m1;
                         }
                     }
                 }
@@ -527,7 +609,7 @@ public class DataFetcher {
     public CandlesData getIntraday(int shareId, String symbol, int candles, int candleType){
         CandlesData share = null;
         if (_xmasterIntraday.contains(symbol)){
-            determineCandleFrame(_xmasterIntraday, symbol, candleType);
+            determineCandleFrame(_xmasterIntraday, symbol);
             stRecord r = _xmasterIntraday.getRecord(symbol);
             boolean needChangeCandleType = false;
             if (r.period > 0 && r.period < candleType){
@@ -540,7 +622,7 @@ public class DataFetcher {
             }
         }
         else if (_masterIntraday.contains(symbol)){
-            determineCandleFrame(_masterIntraday, symbol, candleType);
+            determineCandleFrame(_masterIntraday, symbol);
             stRecord r = _masterIntraday.getRecord(symbol);
             boolean needChangeCandleType = false;
             if (r.period > 0 && r.period < candleType){

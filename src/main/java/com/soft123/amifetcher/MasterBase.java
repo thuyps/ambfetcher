@@ -24,6 +24,7 @@ public abstract class MasterBase {
     
     protected String _folder;
     protected  boolean isIntraday;
+    protected int _candleFrame;
     protected ArrayList<stRecord> _records = new ArrayList<>();
     protected VTDictionary _dictRecords;
     protected VTDictionary _priceboardMap;
@@ -57,6 +58,13 @@ public abstract class MasterBase {
     
     public boolean contains(String symbol){
         return _dictRecords.hasObject(symbol);
+    }
+    
+    public void setCandleFrame(int cf){
+        _candleFrame = cf;
+    }
+    public int getCandleFrame(){
+        return _candleFrame;
     }
     
     public static float convertMBFToFloat(byte[] p, int off) {
@@ -383,7 +391,7 @@ public abstract class MasterBase {
             int offset = headerRecordSize + begin*recordSize;
             di = rdi.seekTo(offset, neededDataSize);
             
-            for (int i = 0; i < totalRecord; i++) {    
+            for (int i = 0; i < candleCnt; i++) {    
                 di.resetCursor();
                 di.skip(i*recordSize);
                 

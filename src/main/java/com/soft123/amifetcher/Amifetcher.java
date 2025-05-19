@@ -58,7 +58,7 @@ public class Amifetcher {
             return res.raw();
         });        
 
-        System.out.println("Fetcher running at: http://localhost:4567");        
+        System.out.println("Fetcher running at: http://localhost:2610");        
     }
     
     public Amifetcher(){
@@ -66,8 +66,8 @@ public class Amifetcher {
         _dataHistorical.setPackedFolder(PACKED_FOLDER);
         _dataHistorical.setup(true, true);
         
-        _dataHistoricalM1 = new DataFetcher("./datatick");
-        _dataHistoricalM1.setup(false, false);
+        //_dataHistoricalM1 = new DataFetcher("./datatick");
+        //_dataHistoricalM1.setup(false, false);
     }
 
     //  daily only
@@ -262,16 +262,16 @@ public class Amifetcher {
         }
     }    
     
-    //  type: D1: historical big
-    //  type: D2: historical medium
-    //  type: D3: historical small
-    //  type: M5: intraday M5
-    //  type: M10: intraday M10
+    //  frame: 5/30/1000
+    //  candles
     public void doGetPacked(Request request, Response response){
         try{
-            String type = request.queryParams("type");
+            int frame = xUtils.stringToInt(request.queryParams("frame"));
+            int candles = xUtils.stringToInt(request.queryParams("candles"));
             
-            if (type == null || type.length() == 0){
+            if (frame != CandlesData.CANDLE_DAILY 
+                    && frame != CandlesData.CANDLE_M5 
+                    && frame != CandlesData.CANDLE_M30){
                 response.status(404);
                 return;
             }
@@ -279,12 +279,7 @@ public class Amifetcher {
             xDataInput di = null;
             String filename = "";
             
-            if (type.charAt(0) == 'D'){
-                di = _dataHistorical.getHistoricalDB(type);
-            }
-            else{
-                di = _dataHistorical.getIntradayDB(type);
-            }
+            di = _dataHistorical.getHistoricalDB(frame, candles);
             
             if (di != null){
                 // Thiết lập header phản hồi

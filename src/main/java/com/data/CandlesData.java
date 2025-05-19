@@ -346,19 +346,25 @@ public class CandlesData {
         return o;
     }
     
-    public void writeToOutputForPacking(xDataOutput o){        
+    public void writeToOutputForPacking(xDataOutput o, int candles){        
         o.writeUTF(symbol);
-        o.writeInt(cursor);
-        for (int i = 0; i < cursor; i++)
+        int candleCnt = candles < cursor?candles:cursor;
+        int begin = cursor - candles;
+        if (begin < 0){
+            begin = 0;
+        }
+        o.writeInt(candleCnt);
+        for (int i = 0; i < candleCnt; i++)
         {
-            o.writeInt(date[i]);
+            int idx = begin + i;
+            o.writeInt(date[idx]);
             
-            o.writeFloat2(open[i]);
-            o.writeFloat2(close[i]);
-            o.writeFloat2(hi[i]);
-            o.writeFloat2(lo[i]);
+            o.writeFloat2(open[idx]);
+            o.writeFloat2(close[idx]);
+            o.writeFloat2(hi[idx]);
+            o.writeFloat2(lo[idx]);
 
-            o.writeInt(volume[i]);
+            o.writeInt(volume[idx]);
         }
     }
     
