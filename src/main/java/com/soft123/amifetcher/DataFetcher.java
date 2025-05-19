@@ -287,12 +287,12 @@ public class DataFetcher {
     }    
     
     //  daily - D
-    public void packDailyDB(int candleCnt)
+    public void packDailyDB(int candles)
     {
-        CandlesData share = new CandlesData(0, "", candleCnt);
+        CandlesData share = new CandlesData(0, "", candles);
         
         xDataOutput o = new xDataOutput(20*1024*1024);
-        o.setCursor(4);
+        o.setCursor(4+4+4); //  candleFrame | candles | shareCnt
         int shareCnt = 0;
         
         int total = 490 < _arrPriceboard.size()?490:_arrPriceboard.size();
@@ -300,18 +300,20 @@ public class DataFetcher {
         for (int i = 0; i < total; i++){
             Priceboard ps = _arrPriceboard.get(i);
             stRecord r = ps.recordD;
-            boolean ok = _masterDaily.readData(r.shareId, r.symbol, r.marketId, candleCnt, share);
+            boolean ok = _masterDaily.readData(r.shareId, r.symbol, r.marketId, candles, share);
             if (!ok){
-                _xmasterDaily.readData(r.shareId, r.symbol, r.marketId, candleCnt, share);
+                _xmasterDaily.readData(r.shareId, r.symbol, r.marketId, candles, share);
             }
             
             shareCnt++;
-            share.writeToOutputForPacking(o, candleCnt);
+            share.writeToOutputForPacking(o, candles);
         }
         
         //  shareCnt
         int totalSize = o.size();
         o.setCursor(0);
+        o.writeInt(CandlesData.CANDLE_DAILY);
+        o.writeInt(candles);
         o.writeInt(shareCnt);
         
         o.setCursor(totalSize); //  size to the end
@@ -362,10 +364,15 @@ public class DataFetcher {
         try{           
             int CANDLE_SIZE = 6*4;
             
+            int frame = di.readInt();
+            int candles0 = di.readInt();
             int shareCnt = di.readInt();
+            
             int size = shareCnt*(candles*CANDLE_SIZE + 20);
             xDataOutput o = new xDataOutput(size);
 
+            o.writeInt(frame);
+            o.writeInt(candles);
             o.writeInt(shareCnt);
             
             for (int i = 0; i < shareCnt; i++){
@@ -415,7 +422,7 @@ public class DataFetcher {
         int totalCandles = 0;//candleCnt*minutesPerCandle;
         
         xDataOutput o = new xDataOutput(20*1024*1024);
-        o.setCursor(4);
+        o.setCursor(4+4+4); //  candleFrame | candles | shareCnt
         int shareCnt = 0;
         
         int total = 490 < _arrPriceboard.size()?490:_arrPriceboard.size();
@@ -466,6 +473,8 @@ public class DataFetcher {
         //  shareCnt
         int totalSize = o.size();
         o.setCursor(0);
+        o.writeInt(frame);
+        o.writeInt(candles);
         o.writeInt(shareCnt);
         
         o.setCursor(totalSize);     //  size to the end
