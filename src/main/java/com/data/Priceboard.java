@@ -5,6 +5,8 @@
 package com.data;
 
 import com.soft123.amifetcher.stRecord;
+import xframe.framework.xDataInput;
+import xframe.framework.xDataOutput;
 import xframe.utils.xUtils;
 
 /**
@@ -19,7 +21,7 @@ public class Priceboard {
     public float _lowest;
     public float _open;
     
-    public int _volume; //  total volume of the day
+    public int _volume; //  total volume of the day (/100)
     public long _timeUpdate;
     public long _timeUpdateOpen;
     
@@ -55,6 +57,37 @@ public class Priceboard {
         _lowest = 0;
         _price = 0;
         _prevClose = 0;
+    }
+    
+    public void writeTo(xDataOutput o){
+        o.writeUTF(_symbol);
+        
+        o.writeInt(_date);
+        o.writeInt(_time);
+        
+        o.writeFloat2(_open);
+        o.writeFloat2(_highest);
+        o.writeFloat2(_lowest);
+        o.writeFloat2(_price);
+        
+        o.writeFloat2(_prevClose);
+        
+        o.writeInt(_volume);
+    }
+    
+    static public void read(xDataInput di, Priceboard ps){
+        ps._symbol = di.readUTF();
+        ps._date = di.readInt();
+        ps._time = di.readInt();
+        
+        ps._open = di.readFloat2();
+        ps._highest = di.readFloat2();
+        ps._lowest = di.readFloat2();
+        ps._price = di.readFloat2();
+        
+        ps._prevClose = di.readFloat2();
+        
+        ps._volume = di.readInt();
     }
  
     public String toString(){

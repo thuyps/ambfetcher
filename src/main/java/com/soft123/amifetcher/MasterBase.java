@@ -155,7 +155,11 @@ public abstract class MasterBase {
                 float hi = convertMBFToFloat(p, 8);
                 float low = convertMBFToFloat(p, 12);
                 float close = convertMBFToFloat(p, 16);
-                int vol = (int)(convertMBFToFloat(p, 20)/100);
+                //int vol = (int)(convertMBFToFloat(p, 20)/100);
+                int vol;
+                float volf = convertMBFToFloat(p, 20);
+                vol = (int)((volf > 1000000000)?volf/100:volf);
+                
                 
                 //String s = String.format("%s: %.2f/%.2f/%.2f/%.2f; V=%d", xUtils.dateIntToStringYYYYMMDD(date), open, hi, low, close, vol);
                 //xUtils.trace(s);
@@ -217,7 +221,9 @@ public abstract class MasterBase {
                 float hi = convertMBFToFloat(p, 8);
                 float low = convertMBFToFloat(p, 12);
                 float close = convertMBFToFloat(p, 16);
-                int vol = (int)(convertMBFToFloat(p, 20)/100);
+                //int vol = (int)(convertMBFToFloat(p, 20)/100);
+                float volf = convertMBFToFloat(p, 20);
+                int vol = (int)((volf > 1000000000)?volf/100:volf);
                 
                 share.addCandle(close, open, hi, low, date, vol);
             }

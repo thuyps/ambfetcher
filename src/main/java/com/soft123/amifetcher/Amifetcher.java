@@ -219,14 +219,26 @@ public class Amifetcher {
         }
     }    
     
-    //  http://localhost:4567/priceboard?symbols=VNM,HAG,XAU/USD
+    xDataOutput _priceboardOfAll;
+    long _timeUpdatePriceboardOfAll;
+    //  return_type: 0: as string; 1: binary
+    //  http://localhost:4567/priceboard?symbols=VNM,HAG,XAU/USD&return_type=1
     public void doGetPriceboard(Request request, Response response){
         try{
             String symbols = request.queryParams("symbols");
+            int returnType = xUtils.stringToInt(request.queryParams("return_type"));
             
             String ss[] = symbols.split("[,]");
             ArrayList<Priceboard> arr = null;
-            if (ss.length == 0 && symbols.compareTo("*") == 0){
+            if (symbols.compareTo("*") == 0){
+                if (returnType == 1 && _priceboardOfAll != null && _priceboardOfAll.size() > 0){
+                    if (System.currentTimeMillis() - _timeUpdatePriceboardOfAll < 5000){
+                        writeDataOutputToResponse(_priceboardOfAll, response);
+                        return;
+                    }
+                }
+                //---------------------
+                
                 arr = _dataHistorical.getPriceboard(null);
             }
             else{
@@ -238,19 +250,35 @@ public class Amifetcher {
             }
             
             if(arr != null && arr.size() > 0){
-                StringBuffer sb = new StringBuffer();
-                
-                for (Priceboard ps: arr)
-                {
-                    sb.append(ps.toStringWithDateEncoded());
-                    sb.append('\n');
-                }
-                
-                {
+                if (returnType == 0){
+                    StringBuffer sb = new StringBuffer();
+
+                    for (Priceboard ps: arr)
+                    {
+                        sb.append(ps.toStringWithDateEncoded());
+                        sb.append('\n');
+                    }
+
+                    //  write to the response
                     response.type("text/plain");
-                    
+
                     String s = sb.toString();
                     response.raw().getOutputStream().write(s.getBytes());
+                }
+                else{
+                    //  symbol(16) + date(4) + time(4) + o/h/l/c + chg + v
+                    int size = arr.size()*(16+4+4+4*4+4+4);
+                    xDataOutput o = new xDataOutput(4+size);
+                    o.writeInt(arr.size());
+                    for (Priceboard ps: arr)
+                    {
+                        ps.writeTo(o);
+                    }
+                    
+                    _priceboardOfAll = o;
+                    _timeUpdatePriceboardOfAll = System.currentTimeMillis();
+                    
+                    writeDataOutputToResponse(o, response);
                 }
             }
             else{
@@ -261,6 +289,22 @@ public class Amifetcher {
             response.status(404);
         }
     }    
+    
+    void writeDataOutputToResponse(xDataOutput o, Response response)
+    {
+        if (o != null && o.size() > 0){
+            response.type("application/octet-stream");
+
+            String filename = "priceboard";
+            response.header("Content-Disposition", "inline; filename=\"" + filename + "\"");
+            response.raw().setContentLength((int) o.size());
+
+            try (OutputStream os = response.raw().getOutputStream()) {
+                os.write(o.getBytes(), 0, o.size());
+            }
+            catch(Throwable throwable){}
+        }
+    }
     
     //  frame: 5/30/1000
     //  candles

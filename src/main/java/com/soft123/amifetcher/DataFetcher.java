@@ -502,6 +502,10 @@ public class DataFetcher {
     */
     public ArrayList<Priceboard> getPriceboard(ArrayList<String> arrSymbol)
     {
+        if (arrSymbol == null || arrSymbol.size() == 0){
+            return Priceboard();
+        }
+        //====================================
         ArrayList<Priceboard> arrPriceboard = new ArrayList<>();
         
         for (String sb: arrSymbol){
