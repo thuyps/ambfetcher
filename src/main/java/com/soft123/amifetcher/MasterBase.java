@@ -125,7 +125,8 @@ public abstract class MasterBase {
                 totalRecord = recordCount;
             }            
             
-            int candleCnt = 256;
+            int candleCnt = xUtils.distanceDate(xUtils.getDateAsInt(), startDate);
+            candleCnt = (int)(candleCnt*(260/360.0));
             if (candleCnt > totalRecord){
                 candleCnt = totalRecord;
             }
@@ -300,7 +301,13 @@ public abstract class MasterBase {
                 totalRecord = recordCount;
             }
             
-            int candleCnt = 512;
+            int candleCnt = xUtils.distanceDate(xUtils.getDateAsInt(), startDate);
+            if (r.period > 0){
+                candleCnt = candleCnt*10*60/r.period;
+            }
+            else{
+                candleCnt = candleCnt*16;
+            }
             if (candleCnt > totalRecord){
                 candleCnt = totalRecord;
             }
