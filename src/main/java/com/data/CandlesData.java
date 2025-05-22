@@ -6,6 +6,7 @@
 package com.data;
 
 import java.util.Date;
+import xframe.framework.xDataInput;
 import xframe.framework.xDataOutput;
 import xframe.utils.xUtils;
 
@@ -365,6 +366,29 @@ public class CandlesData {
             o.writeFloat2(lo[idx]);
 
             o.writeInt(volume[idx]);
+        }
+    }
+    
+    static public void readFromPacked(xDataInput di, CandlesData share)
+    {
+        try{
+            share.symbol = di.readUTF();
+            int candleCnt = di.readInt();
+            share.prepare(candleCnt);
+            for (int i = 0; i < candleCnt; i++)
+            {
+                share.date[i] = di.readInt();
+                
+                share.open[i] = di.readFloat2();
+                share.close[i] = di.readFloat2();
+                share.hi[i] = di.readFloat2();
+                share.lo[i] = di.readFloat2();
+                
+                share.volume[i] = di.readInt();
+            }
+        }
+        catch(Throwable e){
+            
         }
     }
     

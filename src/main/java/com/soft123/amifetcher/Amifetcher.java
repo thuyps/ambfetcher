@@ -34,15 +34,23 @@ public class Amifetcher {
         xFileManager.createAllDirs(PACKED_FOLDER);
         
         amifetcher = new Amifetcher();
-        
+       
+        // Đăng ký hook shutdown
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            System.out.println("Đang dừng Spark...");
+            try{
+                spark.Spark.stop();
+            }catch(Throwable e){}
+            System.out.println("Spark đã dừng.");
+        }));
         //----------------------------------
         spark.Spark.port(2610);
-
+        
         spark.Spark.get("/history", (req, res) -> {
             amifetcher.doGetHistory(req, res);
             return res.raw();
         });
-        
+                    
         spark.Spark.get("/intraday", (req, res) -> {
             amifetcher.doGetIntraday(req, res);
             return res.raw();

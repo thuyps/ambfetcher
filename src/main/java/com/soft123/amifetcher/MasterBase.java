@@ -182,6 +182,9 @@ public abstract class MasterBase {
             xUtils.trace("");
         }
         try {
+            if (rdi.DI() == null){
+                return;
+            }
             rdi.seekTo(2, 10);
             int totalRecord;
             totalRecord = rdi.DI().readUShortBig();
