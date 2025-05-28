@@ -560,6 +560,8 @@ public class DataFetcher {
         }
         CandlesData share = null;
         if (_xmasterIntraday.contains(symbol)){
+            symbol = _xmasterIntraday.convertShortSymbolToFullSymbol(symbol);
+            
             determineCandleFrame(_xmasterIntraday, symbol);
             
             share = _xmasterIntraday.readData(shareId, symbol, market, date, time);
@@ -573,6 +575,8 @@ public class DataFetcher {
             }
         }
         else if (_masterIntraday.contains(symbol)){
+            symbol = _masterIntraday.convertShortSymbolToFullSymbol(symbol);
+            
             determineCandleFrame(_masterIntraday, symbol);
             
             share = _masterIntraday.readData(shareId, symbol, market, date, time);
@@ -622,7 +626,10 @@ public class DataFetcher {
     
     public CandlesData getIntraday(int shareId, String symbol, int candles, int candleType){
         CandlesData share = null;
+
         if (_xmasterIntraday.contains(symbol)){
+            symbol = _xmasterIntraday.convertShortSymbolToFullSymbol(symbol);
+            
             determineCandleFrame(_xmasterIntraday, symbol);
             stRecord r = _xmasterIntraday.getRecord(symbol);
             boolean needChangeCandleType = false;
@@ -636,6 +643,8 @@ public class DataFetcher {
             }
         }
         else if (_masterIntraday.contains(symbol)){
+            symbol = _xmasterIntraday.convertShortSymbolToFullSymbol(symbol);
+            
             determineCandleFrame(_masterIntraday, symbol);
             stRecord r = _masterIntraday.getRecord(symbol);
             boolean needChangeCandleType = false;

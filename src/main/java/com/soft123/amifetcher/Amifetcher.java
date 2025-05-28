@@ -165,6 +165,9 @@ public class Amifetcher {
             CandlesData share = null;
             if (frame.equalsIgnoreCase("M30") || frame.equalsIgnoreCase("M5")){
                 int candleFrame = frame.equalsIgnoreCase("M30")?CandlesData.CANDLE_M30:CandlesData.CANDLE_M5;
+                if (date == 0 && candles == 0){
+                    candles = 1500;
+                }
                 if (candles > 0){
                     share = _dataHistorical.getIntraday(shareId, symbol, candles, candleFrame);
                 }
@@ -176,6 +179,9 @@ public class Amifetcher {
                 }
             }
             else if (frame.equalsIgnoreCase("M1")){
+                if (date == 0 && candles == 0){
+                    candles = 2000;
+                }
                 if (_dataHistoricalM1 != null){
                     if (candles > 0){
                         share = _dataHistoricalM1.getIntraday(shareId, symbol, candles, CandlesData.CANDLE_M1);

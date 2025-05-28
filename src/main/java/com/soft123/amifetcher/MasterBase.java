@@ -56,8 +56,39 @@ public abstract class MasterBase {
     abstract protected int HEADER_RECORD_SIZE(stRecord r);
     abstract protected int RECORD_SIZE(stRecord r);
     
+    public String convertShortSymbolToFullSymbol(String symbol){
+        boolean ok = _dictRecords.hasObject(symbol);
+        if (ok){
+            return symbol;
+        }
+        
+        if (symbol.length() == 8 && symbol.charAt(7) == '.'){
+            ok = _dictRecords.hasObject(symbol + "VC");
+            if (ok) return symbol + "VC";
+            
+            ok = _dictRecords.hasObject(symbol + "FX");
+            if (ok) return symbol + "FX";
+            
+            ok = _dictRecords.hasObject(symbol + "COM");
+            if (ok) return symbol + "COM";
+        }
+        else if (symbol.length() >= 8)
+        {
+            ok = _dictRecords.hasObject(symbol + ".VC");
+            if (ok) return symbol + ".VC";
+            
+            ok = _dictRecords.hasObject(symbol + ".FX");
+            if (ok) return symbol + ".FX";
+            
+            ok = _dictRecords.hasObject(symbol + ".COM");
+            if (ok) return symbol + ".COM";
+        }
+        return symbol;
+    }
     public boolean contains(String symbol){
-        return _dictRecords.hasObject(symbol);
+        symbol = convertShortSymbolToFullSymbol(symbol);
+        boolean ok = _dictRecords.hasObject(symbol);
+        return ok;
     }
     
     public void setCandleFrame(int cf){
