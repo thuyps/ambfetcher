@@ -70,7 +70,7 @@ public class Amifetcher {
     }
     
     public Amifetcher(){
-        _dataHistorical = new DataFetcher("./datapro");
+        _dataHistorical = new DataFetcher("./datafetpro");  //  datapro
         _dataHistorical.setPackedFolder(PACKED_FOLDER);
         _dataHistorical.setup(true, true);
         

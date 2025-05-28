@@ -290,8 +290,22 @@ public class CandlesData {
         return elapsed > (4*3600);  //  4hours
     }
     
+    String convertDBSymbolToVNChartSymbol(){
+        if (symbol != null && (symbol.indexOf(".VC") > 0)){
+            return symbol.replace(".VC", ".C");
+        }
+        if (symbol != null && (symbol.indexOf(".FX") > 0)){
+            return symbol.replace(".FX", ".F");
+        }
+        if (symbol != null && (symbol.indexOf(".COM") > 0)){
+            return symbol.replace(".COM", ".M");
+        }
+        
+        return symbol;
+    }
+    
     public void writeTo(xDataOutput aOut){
-        aOut.writeUTF(symbol);
+        aOut.writeUTF(convertDBSymbolToVNChartSymbol());
         int cnt = cursor;
         aOut.writeInt(cnt);
         for (int i = 0; i < cnt; i++){
@@ -306,7 +320,7 @@ public class CandlesData {
     }
     
     public void writeTo2(xDataOutput aOut){
-        aOut.writeUTF(symbol);
+        aOut.writeUTF(convertDBSymbolToVNChartSymbol());
         aOut.writeInt(candleFrame);
         int cnt = cursor;
         aOut.writeInt(cnt);
@@ -348,7 +362,7 @@ public class CandlesData {
     }
     
     public void writeToOutputForPacking(xDataOutput o, int candles){        
-        o.writeUTF(symbol);
+        o.writeUTF(convertDBSymbolToVNChartSymbol());
         int candleCnt = candles < cursor?candles:cursor;
         int begin = cursor - candles;
         if (begin < 0){

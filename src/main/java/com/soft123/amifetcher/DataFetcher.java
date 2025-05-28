@@ -184,7 +184,8 @@ public class DataFetcher {
                                 catch(Throwable e1){
                                     e1.printStackTrace();
                                 }
-                                System.out.println(String.format("Modifed %s/%s", _folder, event.context()));
+                                String msg = String.format("%s Modifed %s/%s", xUtils.timeAsStringDDHHMMSS(), _folder, event.context());
+                                System.out.println(msg);
                             }
                         }
 

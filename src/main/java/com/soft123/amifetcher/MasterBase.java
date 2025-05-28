@@ -707,12 +707,42 @@ public abstract class MasterBase {
         xUtils.trace(String.format("================%s================", name));
         int ID = 0;
         StringBuffer sb = new StringBuffer();
+        
+        // forex
+        sb.append("INSERT INTO [dbo].[forex] ([Symbol], [forex_id]) VALUES\n");
+        for (stRecord r: _records){
+            
+            if (r.symbol.contains(".FX")){
+                //xUtils.trace(r.symbol);
+                String s = String.format("('%s', %d),", r.symbol, 500010+ID++);
+                sb.append(s);
+                sb.append("\n");
+            }
+        }
+        xUtils.trace(sb.toString());
+        
+        // crypto
+        sb.setLength(0);
         sb.append("INSERT INTO [dbo].[crypto] ([Symbol], [crypto_id]) VALUES\n");
         for (stRecord r: _records){
             
-            if (r.symbol.contains("/")){
+            if (r.symbol.contains(".VC")){
                 //xUtils.trace(r.symbol);
-                String s = String.format("('%s', %d),", r.symbol, 500010+ID++);
+                String s = String.format("('%s', %d),", r.symbol, 510010+ID++);
+                sb.append(s);
+                sb.append("\n");
+            }
+        }
+         xUtils.trace(sb.toString());
+        
+        // commodity
+        sb.setLength(0);
+        sb.append("INSERT INTO [dbo].[commodity] ([Symbol], [com_id]) VALUES\n");
+        for (stRecord r: _records){
+            
+            if (r.symbol.contains(".COM")){
+                //xUtils.trace(r.symbol);
+                String s = String.format("('%s', %d),", r.symbol, 520010+ID++);
                 sb.append(s);
                 sb.append("\n");
             }
