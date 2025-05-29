@@ -193,6 +193,8 @@ public class DataFetcher {
                         if (!valid) {
                             break;
                         }
+                        
+                        Thread.sleep(3500);
                     }    
                 }
                 catch(Throwable e){
@@ -275,6 +277,8 @@ public class DataFetcher {
                         if (!valid) {
                             break;
                         }
+                        
+                        Thread.sleep(3000);
                     }    
                 }
                 catch(Throwable e){
