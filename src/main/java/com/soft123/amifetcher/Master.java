@@ -77,6 +77,8 @@ public class Master extends MasterBase{
 
             int length = di.available();
             int recordCount = length/RECORD_SIZE_MASTER;
+            
+            int RecordSize = 0;
 
             for (int i = 0; i < recordCount; i++) {    
                 int off = HEADER_SIZE_MASTER+i*RECORD_SIZE_MASTER;
@@ -88,6 +90,9 @@ public class Master extends MasterBase{
                 //  record length
                 di.setCursor(off+3);
                 int recordLength = di.readUByte();
+                if (i == 0){
+                    RecordSize = recordLength;
+                }
                 
                 //  total fields
                 di.setCursor(off+4);
@@ -111,7 +116,7 @@ public class Master extends MasterBase{
                                 
                 stRecord r = new stRecord(symbol, fileFNumber);
                 r.recordSize = 0;
-                r.recordSize = recordLength;
+                r.recordSize = RecordSize;
                 r.totalField = totalFields;
                 _records.add(r);
                 _dictRecords.setValue(r, symbol);
