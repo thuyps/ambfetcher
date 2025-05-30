@@ -1,5 +1,4 @@
-# datafet thuyps/123456
-
-cd C:\DatafetApp\DatafetApp
+cd c:\datafetapp\datafetapp
 python .\..\auto_datafet.py
-pauses
+cd ..
+pause

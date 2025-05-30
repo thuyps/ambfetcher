@@ -6,6 +6,7 @@ import psutil
 import subprocess
 import os
 from pywinauto import Desktop
+import threading
 
 # === THÔNG SỐ CẤU HÌNH ===
 WINDOW_TITLE = " Datafet Pro v9.6"#"Datafet Pro v9.6"                      # Tiêu đề cửa sổ của tool
@@ -19,6 +20,8 @@ SCHEDULE_TIME6 = "06:00"
 
 BUTTON_UPDATE = "Update data"                           # Nút Update
 BUTTON_STOP = "Stop update"                             # Nút Stop
+
+LABEL_AUTO_ID = "label1"
 # =========================
 
 def debug_controls_to_file(window_title, output_file="controls_debug.txt"):
@@ -89,6 +92,37 @@ def click_button_by_name(button_name):
 def log_info(message):
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"[{now}] [INFO] {message}")
+
+def get_label_text(window_title, auto_id):
+    try:
+        app = Application(backend="win32").connect(title=window_title)
+        window = app.window(title=window_title)
+
+        label = window.child_window(auto_id=auto_id,
+                                    control_type="System.Windows.Forms.Label")
+
+        if label.exists():
+            return label.window_text()
+        else:
+            return None
+    except Exception as e:
+        print(f"[ERROR] Lỗi khi đọc label: {e}")
+        return None    	
+def job_check_status():
+    log_info(f"[INFO] Kiểm tra label...")
+    text = get_label_text(WINDOW_TITLE, LABEL_AUTO_ID)
+    if text:
+        print(f"Nội dung label: '{text}'")
+        if "Done" in text:
+            job_restart()
+    else:
+        print(f"Không đọc được nội dung label.")
+def check_status_periodically():
+    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Đang kiểm tra label...")
+    # Gọi hàm monitor_label() hoặc get_label_text() ở đây
+    job_check_status()
+    # Gọi lại sau 60 giây
+    threading.Timer(60, check_status_periodically).start()
 # Các job theo lịch trình
 def job_start():
     time.sleep(10)  # Chờ 5 giây để ứng dụng load xong
@@ -104,6 +138,15 @@ def job_stop():
     click_button_by_name(BUTTON_STOP)
     time.sleep(5)  # Thêm 2s chờ xử lý trước khi kill process
     #stop_app()
+def job_stop():
+    log_info(f"=====found Done message => restart Datafet")
+    click_button_by_name(BUTTON_STOP)
+    time.sleep(7)  # Thêm 2s chờ xử lý trước khi kill process
+    stop_app()
+    log_info("Datafet stopped. Start again")
+
+    start_app()
+    job_start()
 
 def save_window_titles_to_file(filename="window_titles.txt"):
     try:
@@ -121,7 +164,9 @@ def save_window_titles_to_file(filename="window_titles.txt"):
     except Exception as e:
         print(f"[ERROR] Có lỗi xảy ra: {e}")
 def main_loop():
-    print("=========Auto datafet=======")
+    #debug_controls_to_file(WINDOW_TITLE)
+    #print("=========Auto datafet=======")
+    #return
     #save_window_titles_to_file()
     #print("===========================")
     #return
@@ -133,6 +178,7 @@ def main_loop():
     schedule.every().day.at(SCHEDULE_TIME4).do(job_start)
     schedule.every().day.at(SCHEDULE_TIME5).do(job_start)
     schedule.every().day.at(SCHEDULE_TIME6).do(job_start)
+    check_status_periodically()
 	
     print("Starting the schedule...")
     while True:
