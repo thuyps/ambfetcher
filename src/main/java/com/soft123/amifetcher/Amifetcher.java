@@ -240,11 +240,14 @@ public class Amifetcher {
     public void doGetPriceboard(Request request, Response response){
         try{
             String symbols = request.queryParams("symbols");
+            String market = request.queryParams("market");
             int returnType = xUtils.stringToInt(request.queryParams("return_type"));
             
-            String ss[] = symbols.split("[,]");
-            ArrayList<Priceboard> arr = null;
-            if (symbols.compareTo("*") == 0){
+            ArrayList<Priceboard> arr = null;            
+            if (market != null && market.length() > 0){
+                arr = _dataHistorical.getPriceboardOfMarket(market);
+            }
+            else if (symbols != null && symbols.compareTo("*") == 0){
                 if (returnType == 1 && _priceboardOfAll != null && _priceboardOfAll.size() > 0){
                     if (System.currentTimeMillis() - _timeUpdatePriceboardOfAll < 5000){
                         writeDataOutputToResponse(_priceboardOfAll, response);
@@ -255,7 +258,8 @@ public class Amifetcher {
                 
                 arr = _dataHistorical.getPriceboard(null);
             }
-            else{
+            else if (symbols != null){
+                String ss[] = symbols.split("[,]");                
                 ArrayList<String> arrSymb = new ArrayList<>();
                 for (String sb: ss){
                     arrSymb.add(sb);

@@ -626,6 +626,23 @@ public class VTDictionary extends JSONObject {
             e.printStackTrace();
         }
     }
+    
+    public ArrayList<String> getKeysAsArray(){
+        ArrayList<String> arr = new ArrayList<>();
+        try {
+            Iterator<String> keysItr = this.keys();
+
+            while (keysItr.hasNext()) {
+                String k = keysItr.next();
+                arr.add(k);
+            }
+        }
+        catch (Throwable e){
+            e.printStackTrace();
+        }
+        
+        return arr;
+    }
 
     public static Map<String, Object> toMap(JSONObject object){
         try {

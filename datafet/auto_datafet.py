@@ -138,7 +138,7 @@ def job_stop():
     click_button_by_name(BUTTON_STOP)
     time.sleep(5)  # Thêm 2s chờ xử lý trước khi kill process
     #stop_app()
-def job_stop():
+def job_restart():
     log_info(f"=====found Done message => restart Datafet")
     click_button_by_name(BUTTON_STOP)
     time.sleep(7)  # Thêm 2s chờ xử lý trước khi kill process

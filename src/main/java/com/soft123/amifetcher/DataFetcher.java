@@ -505,6 +505,42 @@ public class DataFetcher {
         return di;
     }    
     */
+    
+    public ArrayList<Priceboard> getPriceboardOfMarket(String market)
+    {
+        ArrayList<String> symbols = _priceboardMap.getKeysAsArray();
+        String exchange;
+        if (market.contains("forex")){
+            exchange = ".FX";
+        }
+        else if (market.contains("crypto")){
+            exchange = ".VC";
+        }
+        else{
+            exchange = ".COM";
+        }
+        
+        ArrayList<Priceboard> arrPriceboard = new ArrayList<>();
+        for (String sb: symbols){
+            if (!sb.contains("_") && sb.contains(exchange)){
+                Priceboard ps = (Priceboard)_priceboardMap.objectForKeyO(sb);
+                if (ps != null){
+                    if (ps.isExpired()){
+                        if (_masterDaily.contains(ps._symbol)){
+                            _masterDaily.updatePriceboardPriceD(ps._symbol);
+                        }
+                        else if (_xmasterDaily.contains(ps._symbol)){
+                            _xmasterDaily.updatePriceboardPriceD(ps._symbol);
+                        }
+                    }
+                    arrPriceboard.add(ps);
+                }
+            }
+        }
+        
+        return arrPriceboard;
+    }
+    
     public ArrayList<Priceboard> getPriceboard(ArrayList<String> arrSymbol)
     {
         if (arrSymbol == null || arrSymbol.size() == 0){
