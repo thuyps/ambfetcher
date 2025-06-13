@@ -61,7 +61,7 @@ def start_app():
 
 def stop_app():
     """Kết thúc tiến trình ứng dụng"""
-    print(f"[{datetime.now()}] Dừng ứng dụng...")
+    print(f"[{datetime.now()}] Stopping...")
     for proc in psutil.process_iter(['pid', 'name', 'exe']):
         try:
             if proc.info['exe'] and APP_PATH.lower() in proc.info['exe'].lower():
@@ -113,8 +113,11 @@ def job_check_status():
     text = get_label_text(WINDOW_TITLE, LABEL_AUTO_ID)
     if text:
         print(f"Nội dung label: '{text}'")
-        if "Done" in text:
+        if "Done" in text or "Stop" in text:
+            print('do: restart tool')
             job_restart()
+        else:
+	        print('Nothing to do')
     else:
         print(f"Không đọc được nội dung label.")
 def check_status_periodically():
@@ -143,9 +146,12 @@ def job_restart():
     click_button_by_name(BUTTON_STOP)
     time.sleep(7)  # Thêm 2s chờ xử lý trước khi kill process
     stop_app()
-    log_info("Datafet stopped. Start again")
-
+    log_info("Datafet stopped. Restart tool in 10s")
+    time.sleep(10)
+    log_info("Starting....")
     start_app()
+
+    log_info("simulate clicking on Update button")
     job_start()
 
 def save_window_titles_to_file(filename="window_titles.txt"):

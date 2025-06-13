@@ -5,7 +5,9 @@
 package com.soft123.amifetcher;
 import android.content.Context;
 import com.data.CandlesData;
+import com.data.DBHelper;
 import com.data.Priceboard;
+import com.data.VTDictionary;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import spark.Request;
@@ -30,10 +32,14 @@ public class Amifetcher {
     public static void main(String[] args) {
         System.out.println("=======================");
         
+        VTDictionary config = VTDictionary.loadFromFile(null, "config.txt");
+        String dbpath = config.objectForKey("db_path");
+        xUtils.trace("database path: " + dbpath);
+        
         xFileManager.setFileManager(Context.getInstance());
         xFileManager.createAllDirs(PACKED_FOLDER);
         
-        amifetcher = new Amifetcher();
+        amifetcher = new Amifetcher(dbpath);
        
         // Đăng ký hook shutdown
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -61,6 +67,11 @@ public class Amifetcher {
             return res.raw();
         });
         
+        spark.Spark.get("/majorsymbols", (req, res) -> {
+            amifetcher.doGetMajorSymbols(req, res);
+            return res.raw();
+        });
+        
         spark.Spark.get("/packed", (req, res) -> {
             amifetcher.doGetPacked(req, res);
             return res.raw();
@@ -69,8 +80,8 @@ public class Amifetcher {
         System.out.println("Fetcher running at: http://localhost:2610");        
     }
     
-    public Amifetcher(){
-        _dataHistorical = new DataFetcher("./datafetpro");  //  datapro
+    public Amifetcher(String dbPath){
+        _dataHistorical = new DataFetcher(dbPath);  //  datapro
         _dataHistorical.setPackedFolder(PACKED_FOLDER);
         _dataHistorical.setup(true, true);
         
@@ -105,6 +116,9 @@ public class Amifetcher {
             //===============================
 
             CandlesData share = null;
+            if (symbol != null){
+                symbol = DBHelper.convertVNChartSymbolToDB(symbol);
+            }
             if (candles > 0){
                 share = _dataHistorical.getHistory(shareId, symbol, candles);
             }
@@ -161,6 +175,10 @@ public class Amifetcher {
 
             sid = request.queryParams("mid");
             int market = xUtils.stringToInt(sid);
+            
+            if (symbol != null){
+                symbol = DBHelper.convertVNChartSymbolToDB(symbol);
+            }
 
             CandlesData share = null;
             if (frame.equalsIgnoreCase("M30") || frame.equalsIgnoreCase("M5")){
@@ -262,11 +280,64 @@ public class Amifetcher {
                 String ss[] = symbols.split("[,]");                
                 ArrayList<String> arrSymb = new ArrayList<>();
                 for (String sb: ss){
-                    arrSymb.add(sb);
+                    arrSymb.add(DBHelper.convertVNChartSymbolToDB(sb));
                 }
                 arr = _dataHistorical.getPriceboard(arrSymb);
             }
             
+            if(arr != null && arr.size() > 0){
+                if (returnType == 0){
+                    StringBuffer sb = new StringBuffer();
+
+                    for (Priceboard ps: arr)
+                    {
+                        sb.append(ps.toStringWithDateEncoded());
+                        sb.append('\n');
+                    }
+
+                    //  write to the response
+                    response.type("text/plain");
+
+                    String s = sb.toString();
+                    response.raw().getOutputStream().write(s.getBytes());
+                }
+                else{
+                    //  symbol(16) + date(4) + time(4) + o/h/l/c + chg + v
+                    int size = arr.size()*(16+4+4+4*4+4+4);
+                    xDataOutput o = new xDataOutput(4+size);
+                    o.writeInt(arr.size());
+                    for (Priceboard ps: arr)
+                    {
+                        ps.writeTo(o);
+                    }
+                    
+                    _priceboardOfAll = o;
+                    _timeUpdatePriceboardOfAll = System.currentTimeMillis();
+                    
+                    writeDataOutputToResponse(o, response);
+                }
+            }
+            else{
+                response.status(404);
+            }
+        }
+        catch(Throwable e){
+            response.status(404);
+        }
+    }
+
+    public void doGetMajorSymbols(Request request, Response response){
+        try{
+            String market = request.queryParams("markets");
+            int returnType = xUtils.stringToInt(request.queryParams("return_type"));
+            
+            String ss[] = market.split("[,]");
+            ArrayList<String> markets = new ArrayList<>();
+            for (String s: ss){
+                markets.add(DBHelper.convertVNChartMarketToDB(s));
+            }
+            ArrayList<Priceboard> arr = null;  
+            arr = _dataHistorical.getPriceboardOfMarketMajorSymbols(markets);            
             if(arr != null && arr.size() > 0){
                 if (returnType == 0){
                     StringBuffer sb = new StringBuffer();
@@ -326,10 +397,14 @@ public class Amifetcher {
     
     //  frame: 5/30/1000
     //  candles
+    //  market: m/f/c
     public void doGetPacked(Request request, Response response){
         try{
             int frame = xUtils.stringToInt(request.queryParams("frame"));
             int candles = xUtils.stringToInt(request.queryParams("candles"));
+            String market = request.queryParams("market");
+            market = DBHelper.convertVNChartMarketToDB(market);
+            
             
             if (frame != CandlesData.CANDLE_DAILY 
                     && frame != CandlesData.CANDLE_M5 
@@ -338,19 +413,21 @@ public class Amifetcher {
                 return;
             }
             
-            xDataInput di = null;
             String filename = "";
             
-            di = _dataHistorical.getHistoricalDB(frame, candles);
+            stPackData z = _dataHistorical.getHistoricalDB(market, frame, candles);
             
-            if (di != null){
+            if (z != null){
                 // Thiết lập header phản hồi
                 response.type("application/octet-stream"); // Dùng cho file nhị phân chung
                 response.header("Content-Disposition", "attachment; filename=\"" + filename + "\"");
-                response.raw().setContentLength(di.available());
+                if (z.isZipped){
+                    response.header("Content-Encoding", "gzip");
+                }
+                response.raw().setContentLength(z.gzipData.length);
                 
                 OutputStream out = response.raw().getOutputStream();
-                out.write(di.getBytes(), 0, di.available());
+                out.write(z.gzipData, 0, z.gzipData.length);
 
             }
             else{

@@ -47,6 +47,8 @@ public abstract class MasterBase {
                 updatePriceboardPriceD(r.symbol);
             }
         }
+        
+        System.err.println("done loadMaster");
     }
     
     abstract protected void loadMaster();
@@ -157,7 +159,7 @@ public abstract class MasterBase {
             }            
             
             int candleCnt = xUtils.distanceDate(xUtils.getDateAsInt(), startDate);
-            candleCnt = (int)(candleCnt*(260/360.0));
+            candleCnt = 1 + (int)(candleCnt*(260/360.0));
             if (candleCnt > totalRecord){
                 candleCnt = totalRecord;
             }
@@ -334,7 +336,7 @@ public abstract class MasterBase {
             
             int candleCnt = xUtils.distanceDate(xUtils.getDateAsInt(), startDate);
             if (r.period > 0){
-                candleCnt = candleCnt*10*60/r.period;
+                candleCnt = 1+candleCnt*10*60/r.period;
             }
             else{
                 candleCnt = candleCnt*16;
@@ -702,8 +704,10 @@ public abstract class MasterBase {
             ps._time = xUtils.timeFromPackagedDate(dt);
         }   
     }
-    
+  
+    //  use this method if database is vietname's markets only
     public void filterVNSymbols(ArrayList<Priceboard> arrPriceboard){
+        /*
         ArrayList<Priceboard> nonVN = new ArrayList<>();
         for (Priceboard ps: arrPriceboard){
             if (ps._symbol.length() != 3){
@@ -714,6 +718,7 @@ public abstract class MasterBase {
         for (Priceboard ps: nonVN){
             arrPriceboard.remove(ps);
         }
+*/
     }
     
     public void doStatisticOnSymbol(Priceboard ps)

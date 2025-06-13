@@ -60,7 +60,7 @@ public class Priceboard {
     }
     
     public void writeTo(xDataOutput o){
-        o.writeUTF(_symbol);
+        o.writeUTF(DBHelper.convertDBSymbolToVNChartSymbol(_symbol));
         
         o.writeInt(_date);
         o.writeInt(_time);

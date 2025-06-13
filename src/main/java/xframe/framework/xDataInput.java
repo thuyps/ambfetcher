@@ -453,14 +453,17 @@ public class xDataInput {
         mCapacity = mSize;
     }
 
-    public void bind(byte[] data, int offset, int len) {
-        mSize = offset + len;
-        if (mSize > data.length) {
-            mSize = data.length;
+    static public xDataInput bind(byte[] data, int offset, int len) {
+        xDataInput di = new xDataInput(0);
+        di.mSize = offset + len;
+        if (di.mSize > data.length) {
+            di.mSize = data.length;
         }
-        mNumBytesRead = offset;
-        mData = data;
-        mCapacity = mSize;
+        di.mNumBytesRead = offset;
+        di.mData = data;
+        di.mCapacity = di.mSize;
+        
+        return di;
     }
 
     public static xDataInput bind(xDataOutput o) {

@@ -5,8 +5,10 @@
 package com.soft123.amifetcher;
 
 import com.data.CandlesData;
+import com.data.DBHelper;
 import com.data.Priceboard;
 import com.data.VTDictionary;
+import java.io.ByteArrayOutputStream;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -18,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
+import java.util.zip.GZIPOutputStream;
 import xframe.framework.xDataInput;
 import xframe.framework.xDataOutput;
 import xframe.framework.xFileManager;
@@ -38,13 +41,23 @@ public class DataFetcher {
     Master _masterIntraday;
 
     VTDictionary _priceboardMap;
+    VTDictionary _symbolsOfMarket;
+    VTDictionary _gzipPackedDB;
     
     boolean _packableDB;
     VTDictionary vars = new VTDictionary();
+    VTDictionary _majorSymbolsDict = new VTDictionary();  
+    VTDictionary _majorPriceboardDict = new VTDictionary();  
     
     public DataFetcher(String folder){
         _folder = folder;
         _priceboardMap = new VTDictionary();
+        _symbolsOfMarket = new VTDictionary();
+        
+        _gzipPackedDB = new VTDictionary();
+        _majorSymbolsDict = VTDictionary.loadFromFile(null, "majorsymbols.txt");
+        
+        xUtils.trace("DB DataFetcher: " + _folder);
         
         loadMasters();
     }
@@ -59,9 +72,26 @@ public class DataFetcher {
         
         _xmasterIntraday = new XMaster(_folder, true, _priceboardMap);
         _masterIntraday = new Master(_folder, true, _priceboardMap);
+        
+        debugPrintPriceboard();
     }    
     
     ArrayList<Priceboard> _arrPriceboard;
+    void debugPrintPriceboard(){
+        xUtils.trace("========================");
+        int idx = 0;
+        Iterator<String> keys = _priceboardMap.keys();
+
+        while (keys.hasNext()) {
+            String key = keys.next();
+            if (key.indexOf("d_") == 0 || key.indexOf("i_") == 0){
+                continue;
+            }
+            Priceboard ps = (Priceboard)_priceboardMap.objectForKeyO(key);
+            xUtils.trace(String.format("%d: %s", ++idx, ps.toString()));
+        }
+        xUtils.trace("========================");
+    }
     ArrayList<Priceboard> Priceboard(){
         if (_arrPriceboard == null){
             _arrPriceboard = new ArrayList<>();
@@ -291,77 +321,74 @@ public class DataFetcher {
 
     }    
     
-    //  daily - D
-    public void packDailyDB(int candles)
-    {
-        CandlesData share = new CandlesData(0, "", candles);
-        
-        xDataOutput o = new xDataOutput(20*1024*1024);
-        o.setCursor(4+4+4); //  candleFrame | candles | shareCnt
-        int shareCnt = 0;
-        
-        int total = 490 < _arrPriceboard.size()?490:_arrPriceboard.size();
-
-        for (int i = 0; i < total; i++){
-            Priceboard ps = _arrPriceboard.get(i);
-            stRecord r = ps.recordD;
-            boolean ok = _masterDaily.readData(r.shareId, r.symbol, r.marketId, candles, share);
-            if (!ok){
-                _xmasterDaily.readData(r.shareId, r.symbol, r.marketId, candles, share);
-            }
-            
-            shareCnt++;
-            share.writeToOutputForPacking(o, candles);
-        }
-        
-        //  shareCnt
-        int totalSize = o.size();
-        o.setCursor(0);
-        o.writeInt(CandlesData.CANDLE_DAILY);
-        o.writeInt(candles);
-        o.writeInt(shareCnt);
-        
-        o.setCursor(totalSize); //  size to the end
-        
-        String filename = packedFilename(CandlesData.CANDLE_DAILY);
-        xFileManager.saveFile(o, _packedFolder, filename);
-    }
-    
-    String packedFilename(int candleFrame){
-        String filename = String.format("packed_m%d.his", candleFrame);
+   
+    String packedFilename(String market, int candleFrame){
+        String filename = String.format("packed_m%s_%d.his", market, candleFrame);
         return filename;
     }
     
-    public xDataInput getHistoricalDB(int frame, int candles){
+    //  market: .FX; .VC; .COM
+    public stPackData getHistoricalDB(String market, int frame, int candles){
         if (!_packableDB){
             return null;
         }
         
-        String filename = packedFilename(frame);
-
-        String createdKey = String.format("time_%s", filename);
-        long createdTime = vars.objectForKeyAsLong(createdKey);
         long now = System.currentTimeMillis();
-        double elapsed = (now - createdTime)/1000;
         
-        float expiredSeconds = frame/2;
-        if (elapsed > expiredSeconds){
-            xFileManager.removeFile(_packedFolder, filename);
+        //  check if need re-pack full DB
+        boolean isExpired = false;
+        stPackData z = getGZipPackedData(market, frame, true);
+        if (z == null){
+            isExpired = true;
         }
-
-        xDataInput di = xFileManager.readFile(_packedFolder, filename);
-        if (di == null){
-            int packingCandles = frame == CandlesData.CANDLE_DAILY?3*250:250;
-            doPackDB(frame, packingCandles);
-            vars.setValue(now, createdKey);
+        else{
+            long createdTime = z.createdTime;
+            double elapsed = (now - createdTime)/1000;
+            float expiredSeconds = frame/2;
+            if (elapsed > expiredSeconds){
+                isExpired = true;
+            }
         }
         
-        di = xFileManager.readFile(_packedFolder, filename);
+        //  repack full DB
+        if (isExpired){
+            int packingCandles = frame == CandlesData.CANDLE_DAILY?250:250;
+            
+            synchronized (this){
+                doPackDB(market, frame, packingCandles, true);
+            }
+        }
+        
+        //-------------------------
         if (candles < 30){
-            //  snapshot, extract frame
-            di = extractSnapshotFromDB(candles, di);
+            //  snapshot
+            isExpired = false;
+            z = getGZipPackedData(market, frame, false);
+            if (z == null){
+                isExpired = true;
+            }
+            else{
+                double elapsed = (now - z.createdTime)/1000;
+                float expiredSeconds = 60;
+                if (frame == 1000){
+                    expiredSeconds = 3600;
+                }
+                else if (frame == 30){
+                    expiredSeconds = 5*60;
+                }
+                if (elapsed > expiredSeconds){
+                    isExpired = true;
+                }
+            }
+            if (isExpired){
+                doPackDB(market, frame, candles, false);
+            }
+            z = getGZipPackedData(market, frame, false);
         }
-        return di;
+        else{
+            z = getGZipPackedData(market, frame, true);
+        }
+        return z;
     }
     
     xDataInput extractSnapshotFromDB(int candles, xDataInput di)
@@ -411,16 +438,75 @@ public class DataFetcher {
         
         return null;
     }
+    //  m: .FX; .COM; .VC
+    boolean isRecordBelongsToMarket(stRecord r, String m){
+        if (m.isEmpty()){
+            return !r.symbol.contains(".");
+        }
+        return r.symbol.contains(m);
+    }
     
-    void doPackDB(int frame, int candles)
+    //  market or fxcrypto
+    void doPackDB(String market, int frame, int candles, boolean fullDB)
     {
         if (!_packableDB){
             return;
         }
         if (frame == CandlesData.CANDLE_DAILY){
-            packDailyDB(candles);
-            return;
+            packDailyDB(market, candles, fullDB);
         }
+        else{
+            packIntradayDB(market, frame, candles, fullDB);
+        }
+    }
+    
+    //  daily - D
+    public void packDailyDB(String market, int candles, boolean fullDB)
+    {
+        CandlesData share = new CandlesData(0, "", candles);
+        
+        xDataOutput o = new xDataOutput(20*1024*1024);
+        o.setCursor(4+4+4); //  candleFrame | candles | shareCnt
+        int shareCnt = 0;
+        
+        int total = _arrPriceboard.size();
+
+        for (int i = 0; i < total; i++){
+            Priceboard ps = _arrPriceboard.get(i);
+            stRecord r = ps.recordD;
+            if (!isRecordBelongsToMarket(r, market)){
+                continue;
+            }
+            boolean ok = _masterDaily.readData(r.shareId, r.symbol, r.marketId, candles, share);
+            if (!ok){
+                _xmasterDaily.readData(r.shareId, r.symbol, r.marketId, candles, share);
+            }
+            
+            shareCnt++;
+            share.writeToOutputForPacking(o, candles);
+        }
+        
+        //  shareCnt
+        int totalSize = o.size();
+        o.setCursor(0);
+        o.writeInt(CandlesData.CANDLE_DAILY);
+        o.writeInt(candles);
+        o.writeInt(shareCnt);
+        
+        o.setCursor(totalSize); //  size to the end
+        
+        byte[] gzipData = gzipData(o.getBytes(), o.size());
+        setGZipPackedData(gzipData, market, CandlesData.CANDLE_DAILY, fullDB);
+        
+        //  create snapshot for optimization
+        if (fullDB){
+            xDataInput di = extractSnapshotFromDB(30, xDataInput.bind(o));            
+            gzipData = gzipData(di.getBytes(), di.size());
+            setGZipPackedData(gzipData, market, CandlesData.CANDLE_DAILY, false);
+        }
+    }
+    
+    void packIntradayDB(String market, int frame, int candles, boolean fullDB){
         //=================================
         CandlesData share = new CandlesData(0, "", 0);
         
@@ -430,13 +516,13 @@ public class DataFetcher {
         o.setCursor(4+4+4); //  candleFrame | candles | shareCnt
         int shareCnt = 0;
         
-        int total = 490 < _arrPriceboard.size()?490:_arrPriceboard.size();
+        int total = _arrPriceboard.size();
         
         //-------------------------
         
         for (int i = 0; i < total; i++){
             Priceboard ps = _arrPriceboard.get(i);
-            stRecord r = ps.recordI;
+            stRecord r = ps.recordI;    //  intraday's record
             if (r == null){
                 xUtils.trace("no way!!!");
                 continue;
@@ -461,6 +547,9 @@ public class DataFetcher {
             else{
                 totalCandles = candles;
             }
+            if (!isRecordBelongsToMarket(r, market)){
+                continue;
+            }
             //--------------------------------
             
             boolean ok = _masterIntraday.readData(r.shareId, r.symbol, r.marketId, totalCandles, share);
@@ -484,8 +573,50 @@ public class DataFetcher {
         
         o.setCursor(totalSize);     //  size to the end
         
-        String filename = packedFilename(frame);
-        xFileManager.saveFile(o, _packedFolder, filename);
+        byte[] gzipData = gzipData(o.getBytes(), o.size());
+        setGZipPackedData(gzipData, market, frame, fullDB);
+        
+        //  create snapshot for optimization
+        if (fullDB){
+            xDataInput di = extractSnapshotFromDB(30, xDataInput.bind(o));
+            gzipData = gzipData(di.getBytes(), di.size());
+            setGZipPackedData(gzipData, market, frame, false);
+        }
+    }
+    
+    private void setGZipPackedData(byte[] gzipData, String market, int candleFrame, boolean fullDB){
+        String key = String.format("gzip_%s_%d_%s", market, candleFrame, fullDB?"full":"snap");
+        
+        stPackData z = (stPackData)_gzipPackedDB.objectForKeyO(key);
+        if (z == null){
+            z = new stPackData(market);
+            _gzipPackedDB.setValue(z, key);
+        }
+        z.setData(gzipData, true);
+    }
+    private stPackData getGZipPackedData(String market, int candleFrame, boolean fullDB){
+        String key = String.format("gzip_%s_%d_%s", market, candleFrame, fullDB?"full":"snap");
+        
+        stPackData z = (stPackData)_gzipPackedDB.objectForKeyO(key);
+        if (z != null){
+            return z;
+        }
+        return null;
+    }
+    
+    private byte[] gzipData(byte[] data, int size){
+        try{
+            ByteArrayOutputStream baos = new ByteArrayOutputStream(size);
+            try(GZIPOutputStream gzipOut = new GZIPOutputStream(baos)){
+                gzipOut.write(data, 0, size);
+            }
+            
+            return baos.toByteArray();
+        }
+        catch(Throwable e){
+            
+        }
+        return null;
     }
     
     /*
@@ -506,38 +637,87 @@ public class DataFetcher {
     }    
     */
     
-    public ArrayList<Priceboard> getPriceboardOfMarket(String market)
+    ArrayList<String> symbolsOfMarketMajor(String market)
     {
-        ArrayList<String> symbols = _priceboardMap.getKeysAsArray();
-        String exchange;
-        if (market.contains("forex")){
-            exchange = ".FX";
+        ArrayList<String> symbols = null;
+        try{
+            if (market == null || market.length() == 0){
+                market = ".US";
+            }
+            symbols = _majorSymbolsDict.getArrayString(market);
         }
-        else if (market.contains("crypto")){
-            exchange = ".VC";
+        catch(Throwable e){
         }
-        else{
-            exchange = ".COM";
-        }
-        
-        ArrayList<Priceboard> arrPriceboard = new ArrayList<>();
-        for (String sb: symbols){
-            if (!sb.contains("_") && sb.contains(exchange)){
-                Priceboard ps = (Priceboard)_priceboardMap.objectForKeyO(sb);
-                if (ps != null){
-                    if (ps.isExpired()){
-                        if (_masterDaily.contains(ps._symbol)){
-                            _masterDaily.updatePriceboardPriceD(ps._symbol);
-                        }
-                        else if (_xmasterDaily.contains(ps._symbol)){
-                            _xmasterDaily.updatePriceboardPriceD(ps._symbol);
-                        }
+        return symbols;
+    }
+    
+    ArrayList<String> symbolsOfMarket(String market)
+    {
+        ArrayList<String> symbols = (ArrayList<String>)_symbolsOfMarket.objectForKeyO(market);
+        if (symbols == null || symbols.size() == 0)
+        {
+            ArrayList<String> symbolsAll = _priceboardMap.getKeysAsArray();
+            String exchange = DBHelper.convertVNChartMarketToDB(market);
+            
+            symbols = new ArrayList<>();
+            _symbolsOfMarket.setValue(symbols, market);
+                    
+            ArrayList<Priceboard> arrPriceboard = new ArrayList<>();
+            for (String sb: symbolsAll){
+                if (!sb.contains("_")){ //  is symbol
+                    if (exchange.length() > 0 && sb.contains(exchange)){
+                        symbols.add(sb);
+                    }else if (exchange.length() == 0 && !sb.contains(".")){
+                        symbols.add(sb);
                     }
-                    arrPriceboard.add(ps);
+                }
+            }
+        }
+        symbols = (ArrayList<String>)_symbolsOfMarket.objectForKeyO(market);
+        return symbols;
+    }
+    
+    public ArrayList<Priceboard> getPriceboardOfMarketMajorSymbols(ArrayList<String> markets){
+        ArrayList<Priceboard> priceboars = new ArrayList<>();
+        for (String market: markets){
+            ArrayList<Priceboard> major = (ArrayList<Priceboard>)_majorPriceboardDict.objectForKeyO(market);
+            if (major != null){
+                priceboars.addAll(major);
+            }
+            else{
+                ArrayList<String> symbols = symbolsOfMarketMajor(market);
+                if (symbols != null && symbols.size() > 0){
+                    major = getPriceboard(symbols);
+                    priceboars.addAll(major);
                 }
             }
         }
         
+        return priceboars;
+    }
+    
+    public ArrayList<Priceboard> getPriceboardOfMarket(String market)
+    {
+        ArrayList<String> symbols = symbolsOfMarket(market);
+        if (symbols == null){
+            return new ArrayList<Priceboard>();
+        }
+       
+        ArrayList<Priceboard> arrPriceboard = new ArrayList<>();
+        for (String sb: symbols){
+            Priceboard ps = (Priceboard)_priceboardMap.objectForKeyO(sb);
+            if (ps != null && !ps._symbol.contains("DATAFET")){
+                if (ps.isExpired()){
+                    if (_masterDaily.contains(ps._symbol)){
+                        _masterDaily.updatePriceboardPriceD(ps._symbol);
+                    }
+                    else if (_xmasterDaily.contains(ps._symbol)){
+                        _xmasterDaily.updatePriceboardPriceD(ps._symbol);
+                    }
+                }
+                arrPriceboard.add(ps);
+            }
+        }
         return arrPriceboard;
     }
     

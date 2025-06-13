@@ -92,5 +92,6 @@
             <artifactId>spark-core</artifactId>
             <version>2.9.4</version>
         </dependency>    
-    </dependencies>    
+    </dependencies>
+    <name>armfetcher</name>
 </project>
