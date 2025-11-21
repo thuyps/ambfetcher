@@ -29,14 +29,13 @@ public class CsvProvider {
 
     static String PACKED_FOLDER = "./packed";
     CSVDataFetcher _dataHistorical;
-    CSVDataFetcher _dataHistoricalM1;
 
     static CsvProvider amifetcher;
     public static void main(String[] args) {
         System.out.println("=======================");
 
         VTDictionary config = VTDictionary.loadFromFile(null, "config.txt");
-        String dbpath = config.objectForKey("db_path");
+        String dbpath = config.objectForKey("csv_path");
         xUtils.trace("database path: " + dbpath);
 
         xFileManager.setFileManager(Context.getInstance());
@@ -85,6 +84,7 @@ public class CsvProvider {
 
     public CsvProvider(String dbPath){
         _dataHistorical = new CSVDataFetcher(dbPath);  //  datapro
+
     }
 
     //  daily only

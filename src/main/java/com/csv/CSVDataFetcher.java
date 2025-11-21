@@ -15,6 +15,8 @@ import xframe.framework.xFileManager;
 import xframe.utils.xUtils;
 
 import java.io.ByteArrayOutputStream;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -45,6 +47,8 @@ public class CSVDataFetcher {
         
         _gzipPackedDB = new VTDictionary();
         _majorSymbolsDict = VTDictionary.loadFromFile(null, "majorsymbols2.txt");
+
+        updatePriceboard();
         
         xUtils.trace("DB DataFetcher: " + _folder);
 
@@ -321,7 +325,19 @@ public class CSVDataFetcher {
     }
 
     void updatePriceboard(){
-        String csv = xFileManager.readFileAsString(_folder, "Priceboard.csv");
+        String csv = null;
+
+        try {
+            csv = xFileManager.readFileAsString(_folder, "Priceboard.csv");
+
+            //csv = Files.readString(Paths.get());
+        }
+        catch (Throwable e){
+            e.printStackTrace();
+        }
+        if (csv == null){
+            return;
+        }
 
         //  0,      1,      2,  3,    4,    5,  6,            7
         //Symbol,DateTime,Price,Open,Low,High,PreviousClose,Volume

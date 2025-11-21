@@ -15,6 +15,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -102,7 +103,45 @@ public class xFileManager {
         return null;
     }
 
-    public static String readFileAsString(String folder, String file) {
+    public static String readFileAsString(String folder, String filename) {
+        try {
+            byte[] bytes;
+
+            if (folder == null){
+                bytes = Files.readAllBytes(Paths.get(filename));
+            }
+            else {
+                bytes = Files.readAllBytes(Paths.get(folder, filename));
+            }
+
+            String content;
+            // Kiểm tra BOM
+            if (bytes.length >= 3 &&
+                    bytes[0] == (byte) 0xEF && bytes[1] == (byte) 0xBB && bytes[2] == (byte) 0xBF) {
+                // UTF-8 BOM
+                content = new String(bytes, StandardCharsets.UTF_8);
+                content = content.substring(1); // bỏ BOM
+            } else if (bytes.length >= 2 &&
+                    bytes[0] == (byte) 0xFF && bytes[1] == (byte) 0xFE) {
+                // UTF-16 LE BOM
+                content = new String(bytes, StandardCharsets.UTF_16LE);
+                content = content.substring(1); // bỏ BOM
+            } else if (bytes.length >= 2 &&
+                    bytes[0] == (byte) 0xFE && bytes[1] == (byte) 0xFF) {
+                // UTF-16 BE BOM
+                content = new String(bytes, StandardCharsets.UTF_16BE);
+                content = content.substring(1); // bỏ BOM
+            } else {
+                // Mặc định: UTF-8 không BOM
+                content = new String(bytes, StandardCharsets.UTF_8);
+            }
+            return content;
+        }
+        catch (Throwable e){
+            e.printStackTrace();
+        }
+
+        /*
         xDataOutput out = new xDataOutput(1024);
 
         String s = null;
@@ -118,6 +157,9 @@ public class xFileManager {
         }
 
         return s;
+
+         */
+        return null;
     }
 
     //	folder == null: check in RMS
