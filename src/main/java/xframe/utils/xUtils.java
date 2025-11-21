@@ -70,6 +70,10 @@ public class xUtils {
     {
         return (yyyy << 16) | (mm << 8) | dd;
     }
+    public static int CREATE_TIME(int h, int m, int s)
+    {
+        return (h << 16) | (m << 8) | s;
+    }
 
     public static int EXTRACT_YEAR(int d) {
         return (d >> 16);

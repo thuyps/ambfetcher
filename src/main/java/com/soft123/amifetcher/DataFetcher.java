@@ -500,7 +500,8 @@ public class DataFetcher {
         
         //  create snapshot for optimization
         if (fullDB){
-            xDataInput di = extractSnapshotFromDB(30, xDataInput.bind(o));            
+   int cursor;
+            xDataInput di = extractSnapshotFromDB(30, xDataInput.bind(o));
             gzipData = gzipData(di.getBytes(), di.size());
             setGZipPackedData(gzipData, market, CandlesData.CANDLE_DAILY, false);
         }
