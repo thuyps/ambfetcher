@@ -46,7 +46,9 @@ public class CsvProviderActivity {
             System.out.println("Đang dừng Spark...");
             try{
                 spark.Spark.stop();
-            }catch(Throwable e){}
+            }catch(Throwable e){
+                e.printStackTrace();
+            }
             System.out.println("Spark đã dừng.");
         }));
         //----------------------------------

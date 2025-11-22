@@ -1,0 +1,4 @@
+{
+	"db_path":"C:\\amidatabase\\datafetpro",
+	"csv_path":"C:\\Users\\Administrator\\AppData\\Roaming\\MetaQuotes\\Terminal\\53785E099C927DB68A545C249CDBCE06\\MQL5\\Files\\ExportedData"
+}

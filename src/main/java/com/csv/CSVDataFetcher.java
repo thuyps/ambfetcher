@@ -217,6 +217,7 @@ public class CSVDataFetcher {
         }
 
         share = new CandlesData(shareId, symbol, market);
+        share.candleFrame = candleType;
 
         readShareData(share, filename, date, time);
 
