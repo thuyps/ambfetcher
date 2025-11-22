@@ -9,8 +9,6 @@ import com.data.CandlesData;
 import com.data.DBHelper;
 import com.data.Priceboard;
 import com.data.VTDictionary;
-import com.soft123.amifetcher.DataFetcher;
-import com.soft123.amifetcher.stPackData;
 import spark.Request;
 import spark.Response;
 import xframe.framework.xDataOutput;
@@ -25,12 +23,12 @@ import java.util.ArrayList;
  *
  * @author thuyps
  */
-public class CsvProvider {
+public class CsvProviderActivity {
 
     static String PACKED_FOLDER = "./packed";
     CSVDataFetcher _dataHistorical;
 
-    static CsvProvider amifetcher;
+    static CsvProviderActivity amifetcher;
     public static void main(String[] args) {
         System.out.println("=======================");
 
@@ -41,7 +39,7 @@ public class CsvProvider {
         xFileManager.setFileManager(Context.getInstance());
         xFileManager.createAllDirs(PACKED_FOLDER);
 
-        amifetcher = new CsvProvider(dbpath);
+        amifetcher = new CsvProviderActivity(dbpath);
 
         // Đăng ký hook shutdown
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -82,7 +80,7 @@ public class CsvProvider {
         System.out.println("Fetcher running at: http://localhost:2610");
     }
 
-    public CsvProvider(String dbPath){
+    public CsvProviderActivity(String dbPath){
         _dataHistorical = new CSVDataFetcher(dbPath);  //  datapro
 
     }

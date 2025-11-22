@@ -37,6 +37,7 @@ public class CSVDataFetcher {
     VTDictionary _gzipPackedDB;
 
     VTDictionary _majorSymbolsDict = new VTDictionary();
+    VTDictionary _mapSymbol2Stockchart;
 
     long _timeUpdatePriceboard;
 
@@ -47,6 +48,7 @@ public class CSVDataFetcher {
         
         _gzipPackedDB = new VTDictionary();
         _majorSymbolsDict = VTDictionary.loadFromFile(null, "majorsymbols2.txt");
+        _mapSymbol2Stockchart = _majorSymbolsDict.objectForKeyAsDictionary("SymbolMap");
 
         updatePriceboard();
         
@@ -211,7 +213,7 @@ public class CSVDataFetcher {
             filename = String.format("%s_M30.CSV", symbol);
         }
         else{
-            filename = String.format("%s_D1.CSV");
+            filename = String.format("%s_D1.CSV", symbol);
         }
 
         share = new CandlesData(shareId, symbol, market);
@@ -404,7 +406,9 @@ public class CSVDataFetcher {
                         ps._volume = (int)V;
                         ps._time = timeInt;
 
-                        _priceboardMap.setValue(ps, symbol);
+                        ps._symbol = symbol;
+
+                        _priceboardMap.setValue(ps, ps._symbol);
 
                     } catch (NumberFormatException | java.time.format.DateTimeParseException e) {
                     }
