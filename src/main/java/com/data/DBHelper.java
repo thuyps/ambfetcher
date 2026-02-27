@@ -25,7 +25,7 @@ public class DBHelper {
       } else if (symbol != null && symbol.indexOf(".COM") > 0) {
          return symbol.replace(".COM", ".M");
       } else {
-         return symbol != null && !symbol.contains(".") ? symbol + ".US" : symbol;
+         return symbol;// != null && !symbol.contains(".") ? symbol;
       }
    }
 

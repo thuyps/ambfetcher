@@ -28,7 +28,7 @@ public class CsvProviderActivity {
     static String PACKED_FOLDER = "./packed";
     CSVDataFetcher _dataHistorical;
 
-    static CsvProviderActivity amifetcher;
+    static CsvProviderActivity csvfetcher;
     public static void main(String[] args) {
         System.out.println("=======================");
 
@@ -39,7 +39,7 @@ public class CsvProviderActivity {
         xFileManager.setFileManager(Context.getInstance());
         xFileManager.createAllDirs(PACKED_FOLDER);
 
-        amifetcher = new CsvProviderActivity(dbpath);
+        csvfetcher = new CsvProviderActivity(dbpath);
 
         // Đăng ký hook shutdown
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -55,27 +55,27 @@ public class CsvProviderActivity {
         spark.Spark.port(2610);
 
         spark.Spark.get("/history", (req, res) -> {
-            amifetcher.doGetHistory(req, res);
+            csvfetcher.doGetHistory(req, res);
             return res.raw();
         });
 
         spark.Spark.get("/intraday", (req, res) -> {
-            amifetcher.doGetIntraday(req, res);
+            csvfetcher.doGetIntraday(req, res);
             return res.raw();
         });
 
         spark.Spark.get("/priceboard", (req, res) -> {
-            amifetcher.doGetPriceboard(req, res);
+            csvfetcher.doGetPriceboard(req, res);
             return res.raw();
         });
 
         spark.Spark.get("/majorsymbols", (req, res) -> {
-            amifetcher.doGetMajorSymbols(req, res);
+            csvfetcher.doGetMajorSymbols(req, res);
             return res.raw();
         });
 
         spark.Spark.get("/packed", (req, res) -> {
-            amifetcher.doGetPacked(req, res);
+            csvfetcher.doGetPacked(req, res);
             return res.raw();
         });
 
@@ -188,7 +188,7 @@ public class CsvProviderActivity {
                     candleFrame = CandlesData.CANDLE_M1;
                 }
                 if (date == 0 && candles == 0){
-                    candles = 1500;
+                    candles = 3000;
                 }
                 if (candles > 0){
                     share = _dataHistorical.getIntraday(shareId, symbol, 0, candles, candleFrame);

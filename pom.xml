@@ -8,7 +8,7 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>23</maven.compiler.release>
-        <exec.mainClass>com.soft123.amifetcher.Amifetcher</exec.mainClass>
+        <exec.mainClass>com.csv.CsvProviderActivity</exec.mainClass>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
     </properties>
@@ -21,7 +21,7 @@
                         <manifest>
                             <addClasspath>true</addClasspath>
                             <classpathPrefix>lib/</classpathPrefix>
-                            <mainClass>com.soft123.amifetcher.Amifetcher</mainClass>
+                            <mainClass>com.csv.CsvProviderActivity</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
@@ -34,7 +34,7 @@
                     </descriptorRefs>
                     <archive>
                         <manifest>
-                            <mainClass>com.soft123.amifetcher.Amifetcher</mainClass>
+                            <mainClass>com.csv.CsvProviderActivity</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
